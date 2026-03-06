@@ -1,0 +1,38 @@
+{
+  "name": "telemedicine-app",
+  "version": "1.0.0",
+  "description": "Telemedicine mobile app for rural India",
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "eject": "expo eject"
+  },
+  "dependencies": {
+    "react": "18.2.0",
+    "react-native": "0.73.2",
+    "expo": "~50.0.0",
+    "expo-status-bar": "~1.11.1",
+    "expo-constants": "~14.4.4",
+    "@react-navigation/native": "^6.1.9",
+    "@react-navigation/bottom-tabs": "^6.5.11",
+    "@react-navigation/stack": "^6.3.20",
+    "react-native-screens": "~3.27.0",
+    "react-native-safe-area-context": "4.8.2",
+    "react-native-gesture-handler": "~2.14.1",
+    "firebase": "^10.7.0",
+    "react-native-firebase": "^18.8.0",
+    "@agora-io-extensions/react-native-agora": "^7.0.0",
+    "react-native-maps": "1.8.0",
+    "react-native-sound": "^0.11.2",
+    "axios": "^1.6.2",
+    "react-native-vector-icons": "^10.0.0",
+    "lottie-react-native": "6.4.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0"
+  },
+  "private": true
+}
