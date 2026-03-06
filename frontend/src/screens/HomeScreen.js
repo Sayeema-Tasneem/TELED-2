@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   SafeAreaView,
 } from 'react-native';
+import languageService from '../services/languageService';
+
+const t = (key, defaultValue = '') => languageService.t(key, defaultValue);
 
 const MenuButton = ({ icon, title, description, onPress }) => (
   <TouchableOpacity style={styles.menuButton} onPress={onPress}>
@@ -22,51 +25,51 @@ export default function HomeScreen() {
   const menuItems = [
     {
       icon: '👨‍⚕️',
-      title: 'Consult Doctor',
-      description: 'Connect with healthcare professionals',
+      title: t('home.consultDoctor'),
+      description: t('home.consultDesc'),
     },
     {
       icon: '🔍',
-      title: 'Symptom Checker',
-      description: 'Check your health condition',
+      title: t('home.symptomChecker'),
+      description: t('home.symptomDesc'),
     },
     {
       icon: '💊',
-      title: 'Medicine Reminder',
-      description: 'Never forget your medicines',
+      title: t('home.medicineReminder'),
+      description: t('home.medicineDesc'),
     },
     {
       icon: '📋',
-      title: 'Health Records',
-      description: 'View your medical history',
+      title: t('home.healthRecords'),
+      description: t('home.recordsDesc'),
     },
     {
       icon: '🏥',
-      title: 'Nearby Hospitals',
-      description: 'Find healthcare facilities',
+      title: t('home.nearbyHospitals'),
+      description: t('home.hospitalDesc'),
     },
     {
       icon: '⚙️',
-      title: 'Medical Equipment',
-      description: 'Share and book equipment',
+      title: t('home.medicalEquipment'),
+      description: t('home.equipmentDesc'),
     },
     {
       icon: '🚨',
-      title: 'Emergency Help',
-      description: 'Get immediate assistance',
+      title: t('home.emergencyHelp'),
+      description: t('home.emergencyDesc'),
     },
     {
       icon: '🎤',
-      title: 'Health Assistant',
-      description: 'AI-powered voice guidance',
+      title: t('home.healthAssistant'),
+      description: t('home.assistantDesc'),
     },
   ];
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.greeting}>Welcome back! 👋</Text>
-        <Text style={styles.subGreeting}>How can we help you today?</Text>
+        <Text style={styles.greeting}>{t('home.welcome')} 👋</Text>
+        <Text style={styles.subGreeting}>{t('home.greeting')}</Text>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -85,7 +88,7 @@ export default function HomeScreen() {
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.logoutButton}>
-          <Text style={styles.logoutText}>Logout</Text>
+          <Text style={styles.logoutText}>{t('common.logout')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

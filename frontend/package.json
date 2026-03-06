@@ -29,7 +29,9 @@
     "react-native-sound": "^0.11.2",
     "axios": "^1.6.2",
     "react-native-vector-icons": "^10.0.0",
-    "lottie-react-native": "6.4.0"
+    "lottie-react-native": "6.4.0",
+    "i18n-js": "^4.4.2",
+    "react-native-device-info": "^11.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

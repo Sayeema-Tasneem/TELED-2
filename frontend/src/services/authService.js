@@ -27,7 +27,7 @@ api.interceptors.request.use(
 );
 
 const authService = {
-  // Send OTP
+  // Send OTP to phone number
   sendOTP: async (phoneNumber) => {
     try {
       const response = await api.post('/api/auth/send-otp', {
@@ -35,12 +35,12 @@ const authService = {
       });
       return response.data;
     } catch (error) {
-      console.error('Send OTP error:', error);
-      throw error;
+      console.error('Send OTP error:', error.response?.data || error.message);
+      throw error.response?.data || error;
     }
   },
 
-  // Verify OTP
+  // Verify OTP and get token
   verifyOTP: async (phoneNumber, otp) => {
     try {
       const response = await api.post('/api/auth/verify-otp', {
@@ -53,21 +53,72 @@ const authService = {
       // Store token securely
       if (token) {
         await SecureStore.setItemAsync('authToken', token);
+        await SecureStore.setItemAsync('phoneNumber', phoneNumber);
       }
       
       return { token, user };
     } catch (error) {
-      console.error('Verify OTP error:', error);
-      throw error;
+      console.error('Verify OTP error:', error.response?.data || error.message);
+      throw error.response?.data || error;
     }
   },
 
-  // Logout
+  // Create or update user profile
+  createProfile: async (profileData) => {
+    try {
+      const response = await api.post('/api/auth/create-profile', profileData);
+      return response.data;
+    } catch (error) {
+      console.error('Create profile error:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  // Logout user
   logout: async () => {
     try {
+      await api.post('/api/auth/logout');
+      // Clear stored data
       await SecureStore.deleteItemAsync('authToken');
+      await SecureStore.deleteItemAsync('phoneNumber');
+      return { success: true };
     } catch (error) {
       console.error('Logout error:', error);
+      // Still clear local data even if API fails
+      await SecureStore.deleteItemAsync('authToken');
+      await SecureStore.deleteItemAsync('phoneNumber');
+      return { success: true };
+    }
+  },
+
+  // Get stored auth token
+  getToken: async () => {
+    try {
+      return await SecureStore.getItemAsync('authToken');
+    } catch (error) {
+      console.error('Error getting token:', error);
+      return null;
+    }
+  },
+
+  // Get stored phone number
+  getPhoneNumber: async () => {
+    try {
+      return await SecureStore.getItemAsync('phoneNumber');
+    } catch (error) {
+      console.error('Error getting phone number:', error);
+      return null;
+    }
+  },
+
+  // Check if user is authenticated
+  isAuthenticated: async () => {
+    try {
+      const token = await SecureStore.getItemAsync('authToken');
+      return !!token;
+    } catch (error) {
+      console.error('Error checking authentication:', error);
+      return false;
     }
   },
 };

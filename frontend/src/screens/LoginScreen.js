@@ -8,17 +8,46 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
+import languageService from '../services/languageService';
+import authService from '../services/authService';
+
+const t = (key, defaultValue = '') => languageService.t(key, defaultValue);
 
 export default function LoginScreen({ navigation }) {
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSendOTP = () => {
-    if (phoneNumber.length === 10) {
-      // TODO: Call backend to send OTP
-      navigation.navigate('OTP', { phoneNumber });
-    } else {
-      alert('Please enter a valid 10-digit phone number');
+  const handleSendOTP = async () => {
+    if (phoneNumber.length !== 10) {
+      Alert.alert('Error', t('auth.invalidPhone'));
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await authService.sendOTP(phoneNumber);
+      
+      if (response.success) {
+        // Show OTP in development mode
+        if (response.otp) {
+          Alert.alert('Development Mode', `OTP: ${response.otp}`);
+        }
+        
+        navigation.navigate('OTP', { phoneNumber });
+      } else {
+        Alert.alert('Error', response.message || 'Failed to send OTP');
+      }
+    } catch (error) {
+      console.error('Send OTP error:', error);
+      Alert.alert(
+        'Error',
+        error.message || error.error || 'Failed to send OTP. Please try again.'
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -29,40 +58,45 @@ export default function LoginScreen({ navigation }) {
         style={styles.content}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>🏥 Telemedicine</Text>
-          <Text style={styles.subtitle}>Rural Healthcare Access</Text>
+          <Text style={styles.title}>🏥 {t('auth.title')}</Text>
+          <Text style={styles.subtitle}>{t('auth.subtitle')}</Text>
         </View>
 
         <View style={styles.form}>
-          <Text style={styles.label}>Enter Your Phone Number</Text>
+          <Text style={styles.label}>{t('auth.enterPhone')}</Text>
           <View style={styles.phoneInputContainer}>
-            <Text style={styles.countryCode}>+91</Text>
+            <Text style={styles.countryCode}>{t('auth.countryCode')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Enter 10-digit number"
+              placeholder={t('auth.phoneHint')}
               placeholderTextColor="#999"
               keyboardType="numeric"
               maxLength={10}
               value={phoneNumber}
               onChangeText={setPhoneNumber}
+              editable={!loading}
             />
           </View>
 
           <TouchableOpacity
             style={[
               styles.button,
-              phoneNumber.length !== 10 && styles.buttonDisabled,
+              (phoneNumber.length !== 10 || loading) && styles.buttonDisabled,
             ]}
             onPress={handleSendOTP}
-            disabled={phoneNumber.length !== 10}
+            disabled={phoneNumber.length !== 10 || loading}
           >
-            <Text style={styles.buttonText}>Send OTP</Text>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>{t('auth.sendOTP')}</Text>
+            )}
           </TouchableOpacity>
         </View>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            We'll send you an OTP for verification
+            {t('auth.otpNote')}
           </Text>
         </View>
       </KeyboardAvoidingView>

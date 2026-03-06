@@ -8,13 +8,20 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
+import languageService from '../services/languageService';
+import authService from '../services/authService';
+
+const t = (key, defaultValue = '') => languageService.t(key, defaultValue);
 
 export default function OTPScreen({ navigation, route }) {
   const { phoneNumber } = route.params;
   const [otp, setOtp] = useState('');
   const [timer, setTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (timer === 0) {
@@ -29,22 +36,58 @@ export default function OTPScreen({ navigation, route }) {
     return () => clearInterval(interval);
   }, [timer]);
 
-  const handleVerifyOTP = () => {
-    if (otp.length === 6) {
-      // TODO: Call backend to verify OTP
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Home' }],
-      });
-    } else {
-      alert('Please enter a valid 6-digit OTP');
+  const handleVerifyOTP = async () => {
+    if (otp.length !== 6) {
+      Alert.alert('Error', t('auth.invalidOTP'));
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await authService.verifyOTP(phoneNumber, otp);
+      
+      if (response.token) {
+        // Navigate to profile creation
+        navigation.navigate('Profile', { phoneNumber });
+      } else {
+        Alert.alert('Error', 'Failed to verify OTP');
+      }
+    } catch (error) {
+      console.error('Verify OTP error:', error);
+      Alert.alert(
+        'Error',
+        error.message || error.error || 'Invalid OTP. Please try again.'
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleResendOTP = () => {
-    setTimer(60);
-    setCanResend(false);
-    // TODO: Call backend to resend OTP
+  const handleResendOTP = async () => {
+    setLoading(true);
+    try {
+      const response = await authService.sendOTP(phoneNumber);
+      
+      if (response.success) {
+        setTimer(60);
+        setCanResend(false);
+        setOtp('');
+        
+        // Show OTP in development mode
+        if (response.otp) {
+          Alert.alert('Development Mode', `New OTP: ${response.otp}`);
+        } else {
+          Alert.alert('Success', 'OTP sent to your phone');
+        }
+      } else {
+        Alert.alert('Error', response.message || 'Failed to resend OTP');
+      }
+    } catch (error) {
+      console.error('Resend OTP error:', error);
+      Alert.alert('Error', 'Failed to resend OTP');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -54,18 +97,21 @@ export default function OTPScreen({ navigation, route }) {
         style={styles.content}
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.backButton}>← Back</Text>
+          <TouchableOpacity 
+            onPress={() => navigation.goBack()}
+            disabled={loading}
+          >
+            <Text style={styles.backButton}>← {t('common.back')}</Text>
           </TouchableOpacity>
-          <Text style={styles.title}>Verify OTP</Text>
+          <Text style={styles.title}>{t('auth.verifyOTP')}</Text>
         </View>
 
         <View style={styles.form}>
           <Text style={styles.desc}>
-            We sent an OTP to +91 {phoneNumber}
+            {t('auth.otpSentTo')} +91 {phoneNumber}
           </Text>
 
-          <Text style={styles.label}>Enter 6-digit OTP</Text>
+          <Text style={styles.label}>{t('auth.enterOTP')}</Text>
           <TextInput
             style={styles.input}
             placeholder="000000"
@@ -74,25 +120,30 @@ export default function OTPScreen({ navigation, route }) {
             maxLength={6}
             value={otp}
             onChangeText={setOtp}
+            editable={!loading}
           />
 
           <TouchableOpacity
-            style={[styles.button, otp.length !== 6 && styles.buttonDisabled]}
+            style={[styles.button, (otp.length !== 6 || loading) && styles.buttonDisabled]}
             onPress={handleVerifyOTP}
-            disabled={otp.length !== 6}
+            disabled={otp.length !== 6 || loading}
           >
-            <Text style={styles.buttonText}>Verify OTP</Text>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>{t('auth.verifyOTP')}</Text>
+            )}
           </TouchableOpacity>
         </View>
 
         <View style={styles.footer}>
           <Text style={styles.timerText}>
             {canResend ? (
-              <TouchableOpacity onPress={handleResendOTP}>
-                <Text style={styles.resendLink}>Resend OTP</Text>
+              <TouchableOpacity onPress={handleResendOTP} disabled={loading}>
+                <Text style={styles.resendLink}>{t('auth.resendOTP')}</Text>
               </TouchableOpacity>
             ) : (
-              `Resend in ${timer}s`
+              t('auth.resendIn', { seconds: timer }).replace('{{seconds}}', timer)
             )}
           </Text>
         </View>

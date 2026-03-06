@@ -1,55 +1,77 @@
 // Auth Controller
 // Handles authentication operations like OTP sending and verification
 
-const { admin } = require('../config/firebase');
+const { admin, db } = require('../config/firebase');
 const jwt = require('jsonwebtoken');
 
 // Function to generate JWT token
 const generateToken = (phoneNumber) => {
   return jwt.sign(
     { phoneNumber, iat: Date.now() },
-    process.env.JWT_SECRET,
+    process.env.JWT_SECRET || 'default-secret-key',
     { expiresIn: '30d' }
   );
 };
 
-// Send OTP (placeholder - implement with Twilio or Firebase)
-const sendOTP = async (phoneNumber) => {
+// Check if user exists
+const userExists = async (phoneNumber) => {
   try {
-    // TODO: Integrate with Twilio or Firebase Authentication
-    // For now, we'll just log it
-    console.log(`Sending OTP to +91${phoneNumber}`);
-    
-    return {
-      success: true,
-      message: 'OTP sent successfully',
-    };
+    const userDoc = await db.collection('users').doc(phoneNumber).get();
+    return userDoc.exists;
   } catch (error) {
-    throw new Error(`Failed to send OTP: ${error.message}`);
+    console.error('Error checking user:', error);
+    return false;
   }
 };
 
-// Verify OTP
-const verifyOTP = async (phoneNumber, otp) => {
+// Create new user
+const createUser = async (phoneNumber, userData = {}) => {
   try {
-    // TODO: Implement OTP verification logic
-    // This should verify against stored OTP in cache/database
-    
-    const token = generateToken(phoneNumber);
-    
-    return {
-      token,
-      user: {
-        phoneNumber,
-      },
-    };
+    await db.collection('users').doc(phoneNumber).set({
+      phoneNumber,
+      ...userData,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    return true;
   } catch (error) {
-    throw new Error(`Failed to verify OTP: ${error.message}`);
+    console.error('Error creating user:', error);
+    throw error;
+  }
+};
+
+// Get user by phone
+const getUserByPhone = async (phoneNumber) => {
+  try {
+    const userDoc = await db.collection('users').doc(phoneNumber).get();
+    if (userDoc.exists) {
+      return userDoc.data();
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    throw error;
+  }
+};
+
+// Update user profile
+const updateUserProfile = async (phoneNumber, profileData) => {
+  try {
+    await db.collection('users').doc(phoneNumber).update({
+      ...profileData,
+      updatedAt: new Date(),
+    });
+    return true;
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    throw error;
   }
 };
 
 module.exports = {
-  sendOTP,
-  verifyOTP,
   generateToken,
+  userExists,
+  createUser,
+  getUserByPhone,
+  updateUserProfile,
 };
