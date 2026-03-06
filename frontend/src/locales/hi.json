@@ -74,5 +74,71 @@
     "emergencyDesc": "तत्काल सहायता प्राप्त करें",
     "healthAssistant": "स्वास्थ्य सहायक",
     "assistantDesc": "AI-संचालित आवाज मार्गदर्शन"
+  },
+  "nav": {
+    "home": "होम",
+    "doctor": "डॉक्टर",
+    "symptoms": "लक्षण",
+    "medicine": "दवा",
+    "records": "रिकॉर्ड",
+    "hospitals": "अस्पताल"
+  },
+  "screens": {
+    "doctor": {
+      "title": "डॉक्टर से परामर्श",
+      "subtitle": "स्वास्थ्य पेशेवरों के साथ अपॉइंटमेंट बुक करें",
+      "search": "डॉक्टर खोजें",
+      "filter": "फ़िल्टर",
+      "rating": "रेटिंग",
+      "consultationFee": "परामर्श शुल्क",
+      "book": "अपॉइंटमेंट बुक करें",
+      "appointment": "अपॉइंटमेंट"
+    },
+    "symptoms": {
+      "title": "लक्षण जांचक",
+      "subtitle": "संभावित स्वास्थ्य समस्याओं की पहचान करें",
+      "selectSymptoms": "अपने लक्षण चुनें",
+      "analyze": "लक्षणों का विश्लेषण करें",
+      "selectedSymptoms": "चुने गए लक्षण",
+      "noSymptoms": "कृपया कम से कम एक लक्षण चुनें",
+      "cough": "खांसी",
+      "fever": "बुखार",
+      "headache": "सिरदर्द",
+      "fatigue": "थकान",
+      "bodyPain": "शरीर में दर्द"
+    },
+    "medicine": {
+      "title": "दवा अनुस्मारक",
+      "subtitle": "अपनी दवाओं को ट्रैक और प्रबंधित करें",
+      "addMedicine": "दवा जोड़ें",
+      "medicine": "दवा",
+      "dosage": "खुराक",
+      "frequency": "आवृत्ति",
+      "days": "दिन",
+      "takeMedicine": "दवा लें",
+      "deleteMedicine": "हटाएं",
+      "add": "जोड़ें",
+      "cancel": "रद्द करें",
+      "done": "पूरा"
+    },
+    "records": {
+      "title": "स्वास्थ्य रिकॉर्ड",
+      "subtitle": "आपका चिकित्सा इतिहास और रिपोर्ट",
+      "prescriptions": "प्रिस्क्रिप्शन",
+      "reports": "रिपोर्ट",
+      "consultations": "परामर्श",
+      "noRecords": "कोई रिकॉर्ड नहीं"
+    },
+    "hospitals": {
+      "title": "आस-पास के अस्पताल",
+      "subtitle": "अपने पास स्वास्थ्य सुविधाएं खोजें",
+      "search": "खोजें",
+      "filter": "फ़िल्टर",
+      "call": "कॉल करें",
+      "directions": "दिशानिर्देश",
+      "mapPlaceholder": "मानचित्र दृश्य",
+      "mapSubtext": "(चरण 10 में एकीकृत)",
+      "found": "अस्पताल मिले"
+    }
   }
 }

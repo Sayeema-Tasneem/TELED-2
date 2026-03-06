@@ -8,7 +8,7 @@ import { ActivityIndicator, View } from 'react-native';
 import LoginScreen from './src/screens/LoginScreen';
 import OTPScreen from './src/screens/OTPScreen';
 import ProfileCreationScreen from './src/screens/ProfileCreationScreen';
-import HomeScreen from './src/screens/HomeScreen';
+import BottomTabNavigator from './src/navigation/BottomTabNavigator';
 
 // Import services
 import languageService from './src/services/languageService';
@@ -69,8 +69,8 @@ export default function App() {
             component={ProfileCreationScreen} 
           />
           <Stack.Screen 
-            name="Home" 
-            component={HomeScreen} 
+            name="MainApp" 
+            component={BottomTabNavigator} 
           />
         </Stack.Navigator>
       </NavigationContainer>

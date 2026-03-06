@@ -74,5 +74,71 @@
     "emergencyDesc": "Get immediate assistance",
     "healthAssistant": "Health Assistant",
     "assistantDesc": "AI-powered voice guidance"
+  },
+  "nav": {
+    "home": "Home",
+    "doctor": "Doctor",
+    "symptoms": "Symptoms",
+    "medicine": "Medicine",
+    "records": "Records",
+    "hospitals": "Hospitals"
+  },
+  "screens": {
+    "doctor": {
+      "title": "Consult Doctor",
+      "subtitle": "Book appointment with healthcare professionals",
+      "search": "Search Doctor",
+      "filter": "Filter",
+      "rating": "Rating",
+      "consultationFee": "Consultation Fee",
+      "book": "Book Appointment",
+      "appointment": "Appointment"
+    },
+    "symptoms": {
+      "title": "Symptom Checker",
+      "subtitle": "Identify potential health issues",
+      "selectSymptoms": "Select your symptoms",
+      "analyze": "Analyze Symptoms",
+      "selectedSymptoms": "Selected Symptoms",
+      "noSymptoms": "Please select at least one symptom",
+      "cough": "Cough",
+      "fever": "Fever",
+      "headache": "Headache",
+      "fatigue": "Fatigue",
+      "bodyPain": "Body Pain"
+    },
+    "medicine": {
+      "title": "Medicine Reminder",
+      "subtitle": "Track and manage your medicines",
+      "addMedicine": "Add Medicine",
+      "medicine": "Medicine",
+      "dosage": "Dosage",
+      "frequency": "Frequency",
+      "days": "Days",
+      "takeMedicine": "Take Medicine",
+      "deleteMedicine": "Delete",
+      "add": "Add",
+      "cancel": "Cancel",
+      "done": "Done"
+    },
+    "records": {
+      "title": "Health Records",
+      "subtitle": "Your medical history and reports",
+      "prescriptions": "Prescriptions",
+      "reports": "Reports",
+      "consultations": "Consultations",
+      "noRecords": "No records found"
+    },
+    "hospitals": {
+      "title": "Nearby Hospitals",
+      "subtitle": "Find healthcare facilities near you",
+      "search": "Search",
+      "filter": "Filter",
+      "call": "Call",
+      "directions": "Directions",
+      "mapPlaceholder": "Map View",
+      "mapSubtext": "(Integrated in Phase 10)",
+      "found": "hospitals found"
+    }
   }
 }

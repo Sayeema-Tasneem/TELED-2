@@ -21,47 +21,55 @@ const MenuButton = ({ icon, title, description, onPress }) => (
   </TouchableOpacity>
 );
 
-export default function HomeScreen() {
+export default function HomeScreen({ navigation }) {
   const menuItems = [
     {
       icon: '👨‍⚕️',
       title: t('home.consultDoctor'),
       description: t('home.consultDesc'),
+      screen: 'Doctor',
     },
     {
       icon: '🔍',
       title: t('home.symptomChecker'),
       description: t('home.symptomDesc'),
+      screen: 'Symptoms',
     },
     {
       icon: '💊',
       title: t('home.medicineReminder'),
       description: t('home.medicineDesc'),
+      screen: 'Medicine',
     },
     {
       icon: '📋',
       title: t('home.healthRecords'),
       description: t('home.recordsDesc'),
+      screen: 'Records',
     },
     {
       icon: '🏥',
       title: t('home.nearbyHospitals'),
       description: t('home.hospitalDesc'),
+      screen: 'Hospitals',
     },
     {
       icon: '⚙️',
       title: t('home.medicalEquipment'),
       description: t('home.equipmentDesc'),
+      screen: null,
     },
     {
       icon: '🚨',
       title: t('home.emergencyHelp'),
       description: t('home.emergencyDesc'),
+      screen: null,
     },
     {
       icon: '🎤',
       title: t('home.healthAssistant'),
       description: t('home.assistantDesc'),
+      screen: null,
     },
   ];
 
@@ -80,20 +88,75 @@ export default function HomeScreen() {
             title={item.title}
             description={item.description}
             onPress={() => {
-              // TODO: Navigate to respective screens
+              if (item.screen) {
+                navigation.navigate(item.screen);
+              }
             }}
           />
         ))}
       </ScrollView>
-
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.logoutButton}>
-          <Text style={styles.logoutText}>{t('common.logout')}</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  header: {
+    backgroundColor: '#1f4788',
+    paddingTop: 16,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+  },
+  greeting: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  subGreeting: {
+    fontSize: 14,
+    color: '#e0e0e0',
+    marginTop: 4,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  menuButton: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginBottom: 12,
+    padding: 16,
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  icon: {
+    fontSize: 32,
+    marginRight: 16,
+  },
+  menuContent: {
+    flex: 1,
+  },
+  menuTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  menuDesc: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+  },
+});
+
 
 const styles = StyleSheet.create({
   container: {
