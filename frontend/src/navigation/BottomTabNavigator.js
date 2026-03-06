@@ -1,5 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, Text, StyleSheet } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import languageService from '../services/languageService';
@@ -7,14 +8,64 @@ import languageService from '../services/languageService';
 // Import screens
 import HomeScreen from '../screens/HomeScreen';
 import DoctorScreen from '../screens/DoctorScreen';
+import EnhancedDoctorListScreen from '../screens/EnhancedDoctorListScreen';
+import DoctorProfileScreen from '../screens/DoctorProfileScreen';
+import BookAppointmentScreen from '../screens/BookAppointmentScreen';
+import AppointmentsScreen from '../screens/AppointmentsScreen';
+import AppointmentDetailsScreen from '../screens/AppointmentDetailsScreen';
 import SymptomCheckerScreen from '../screens/SymptomCheckerScreen';
 import MedicineReminderScreen from '../screens/MedicineReminderScreen';
 import HealthRecordsScreen from '../screens/HealthRecordsScreen';
 import NearbyHospitalsScreen from '../screens/NearbyHospitalsScreen';
 
 const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
 
 const t = (key, defaultValue = '') => languageService.t(key, defaultValue);
+
+// Doctor Stack Navigator
+function DoctorStackNavigator() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen
+        name="DoctorList"
+        component={EnhancedDoctorListScreen}
+      />
+      <Stack.Screen
+        name="DoctorProfile"
+        component={DoctorProfileScreen}
+      />
+      <Stack.Screen
+        name="BookAppointment"
+        component={BookAppointmentScreen}
+      />
+    </Stack.Navigator>
+  );
+}
+
+// Appointments Stack Navigator
+function AppointmentsStackNavigator() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen
+        name="AppointmentsList"
+        component={AppointmentsScreen}
+      />
+      <Stack.Screen
+        name="AppointmentDetails"
+        component={AppointmentDetailsScreen}
+      />
+    </Stack.Navigator>
+  );
+}
 
 export default function BottomTabNavigator() {
   return (
@@ -32,7 +83,7 @@ export default function BottomTabNavigator() {
           paddingTop: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: '500',
           marginTop: 4,
         },
@@ -43,8 +94,11 @@ export default function BottomTabNavigator() {
             case 'HomeTab':
               iconName = focused ? 'home' : 'home-outline';
               break;
-            case 'Doctor':
+            case 'DoctorStack':
               iconName = focused ? 'person-circle' : 'person-circle-outline';
+              break;
+            case 'Appointments':
+              iconName = focused ? 'calendar' : 'calendar-outline';
               break;
             case 'Symptoms':
               iconName = focused ? 'pulse' : 'pulse-outline';
@@ -74,10 +128,17 @@ export default function BottomTabNavigator() {
         }}
       />
       <Tab.Screen
-        name="Doctor"
-        component={DoctorScreen}
+        name="DoctorStack"
+        component={DoctorStackNavigator}
         options={{
           tabBarLabel: t('nav.doctor', 'Doctor'),
+        }}
+      />
+      <Tab.Screen
+        name="Appointments"
+        component={AppointmentsStackNavigator}
+        options={{
+          tabBarLabel: 'Appointments',
         }}
       />
       <Tab.Screen

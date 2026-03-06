@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
+const appointmentRoutes = require('./routes/appointmentRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -17,6 +18,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/appointments', appointmentRoutes);
 
 // Health check endpoint
 app.get('/', (req, res) => {
