@@ -2,12 +2,22 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 
+// Load environment variables before importing modules that read process.env
+dotenv.config();
+
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
-
-// Load environment variables
-dotenv.config();
+const callRoutes = require('./routes/callRoutes');
+const chatRoutes = require('./routes/chatRoutes');
+const medicineRoutes = require('./routes/medicineRoutes');
+const healthRecordsRoutes = require('./routes/healthRecordsRoutes');
+const hospitalsRoutes = require('./routes/hospitalsRoutes');
+const symptomRoutes = require('./routes/symptomRoutes');
+const equipmentRoutes = require('./routes/equipmentRoutes');
+const equipmentRotationRoutes = require('./routes/equipmentRotationRoutes');
+const simpleRoutes = require('./routes/simpleRoutes');
+const emergencyRoutes = require('./routes/emergencyRoutes');
 
 const app = express();
 
@@ -15,10 +25,21 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static('uploads')); // Serve uploaded files
 
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/calls', callRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/medicines', medicineRoutes);
+app.use('/api/health-records', healthRecordsRoutes);
+app.use('/api/hospitals', hospitalsRoutes);
+app.use('/api/symptoms', symptomRoutes);
+app.use('/api/equipment', equipmentRoutes);
+app.use('/api/equipment-rotation', equipmentRotationRoutes);
+app.use('/api/simple', simpleRoutes);
+app.use('/api/emergency', emergencyRoutes);
 
 // Health check endpoint
 app.get('/', (req, res) => {

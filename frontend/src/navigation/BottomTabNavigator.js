@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, Text, StyleSheet } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import languageService from '../services/languageService';
+import { A11Y_COLORS, fs } from '../theme/accessibility';
 
 // Import screens
 import HomeScreen from '../screens/HomeScreen';
@@ -15,13 +16,56 @@ import AppointmentsScreen from '../screens/AppointmentsScreen';
 import AppointmentDetailsScreen from '../screens/AppointmentDetailsScreen';
 import SymptomCheckerScreen from '../screens/SymptomCheckerScreen';
 import MedicineReminderScreen from '../screens/MedicineReminderScreen';
+import AddMedicineScreen from '../screens/AddMedicineScreen';
 import HealthRecordsScreen from '../screens/HealthRecordsScreen';
 import NearbyHospitalsScreen from '../screens/NearbyHospitalsScreen';
+import NearbyHospitalsMapScreen from '../screens/NearbyHospitalsMapScreen';
+import EmergencyHelpScreen from '../screens/EmergencyHelpScreen';
+import MedicalEquipmentScreen from '../screens/MedicalEquipmentScreen';
+import EquipmentHubScreen from '../screens/EquipmentHubScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
+// Medicine Stack Navigator
+function MedicineStackNavigator() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="MedicineReminder" component={MedicineReminderScreen} />
+      <Stack.Screen name="AddMedicineScreen" component={AddMedicineScreen} />
+    </Stack.Navigator>
+  );
+}
+
 const t = (key, defaultValue = '') => languageService.t(key, defaultValue);
+
+// Home Stack Navigator
+function HomeStackNavigator() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen
+        name="Home"
+        component={HomeScreen}
+      />
+      <Stack.Screen
+        name="EmergencyHelp"
+        component={EmergencyHelpScreen}
+      />
+      <Stack.Screen
+        name="MedicalEquipment"
+        component={MedicalEquipmentScreen}
+      />
+      <Stack.Screen
+        name="EquipmentHub"
+        component={EquipmentHubScreen}
+      />
+    </Stack.Navigator>
+  );
+}
 
 // Doctor Stack Navigator
 function DoctorStackNavigator() {
@@ -72,20 +116,23 @@ export default function BottomTabNavigator() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: '#4CAF50',
-        tabBarInactiveTintColor: '#999',
+        tabBarActiveTintColor: A11Y_COLORS.brand,
+        tabBarInactiveTintColor: A11Y_COLORS.textSecondary,
         tabBarStyle: {
-          backgroundColor: '#fff',
+          backgroundColor: A11Y_COLORS.background,
           borderTopWidth: 1,
-          borderTopColor: '#eee',
-          height: 70,
-          paddingBottom: 8,
-          paddingTop: 8,
+          borderTopColor: A11Y_COLORS.border,
+          height: 86,
+          paddingBottom: 12,
+          paddingTop: 10,
         },
         tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: '500',
+          fontSize: fs(12),
+          fontWeight: '700',
           marginTop: 4,
+        },
+        tabBarItemStyle: {
+          paddingVertical: 4,
         },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
@@ -112,17 +159,20 @@ export default function BottomTabNavigator() {
             case 'Hospitals':
               iconName = focused ? 'location' : 'location-outline';
               break;
+            case 'EquipmentHubTab':
+              iconName = focused ? 'cube' : 'cube-outline';
+              break;
             default:
               iconName = 'home-outline';
           }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return <Ionicons name={iconName} size={focused ? 32 : 30} color={color} />;
         },
       })}
     >
       <Tab.Screen
         name="HomeTab"
-        component={HomeScreen}
+        component={HomeStackNavigator}
         options={{
           tabBarLabel: t('nav.home', 'Home'),
         }}
@@ -150,7 +200,7 @@ export default function BottomTabNavigator() {
       />
       <Tab.Screen
         name="Medicine"
-        component={MedicineReminderScreen}
+        component={MedicineStackNavigator}
         options={{
           tabBarLabel: t('nav.medicine', 'Medicine'),
         }}
@@ -163,8 +213,15 @@ export default function BottomTabNavigator() {
         }}
       />
       <Tab.Screen
+        name="EquipmentHubTab"
+        component={EquipmentHubScreen}
+        options={{
+          tabBarLabel: 'Equipment Hub',
+        }}
+      />
+      <Tab.Screen
         name="Hospitals"
-        component={NearbyHospitalsScreen}
+        component={NearbyHospitalsMapScreen}
         options={{
           tabBarLabel: t('nav.hospitals', 'Hospitals'),
         }}

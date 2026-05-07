@@ -7,25 +7,61 @@
       "**/*"
     ],
     "ios": {
-      "supportsTabletMode": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "Allow Telemedicine to recognize your speech for hands-free navigation.",
+        "NSMicrophoneUsageDescription": "Allow Telemedicine to access your microphone for voice commands.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.tasneem.telemedicine"
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "package": "com.telemedicine.rural"
+      "package": "com.telemedicine.rural",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
+    "web": {},
     "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Telemedicine to access your camera to scan medicine codes."
+        }
+      ],
       [
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Allow Telemedicine to access your location."
         }
-      ]
-    ]
+      ],
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "color": "#1976D2"
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow Telemedicine to access your microphone for voice commands.",
+          "speechRecognitionPermission": "Allow Telemedicine to recognize your speech for hands-free navigation.",
+          "androidSpeechServicePackages": [
+            "com.google.android.tts",
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ],
+      "@react-native-community/datetimepicker"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "eb317d4e-4b65-4fc9-899e-ef6183be1859"
+      }
+    }
   }
 }

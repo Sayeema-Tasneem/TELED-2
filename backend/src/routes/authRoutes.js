@@ -4,6 +4,7 @@ const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const otpService = require('../services/otpService');
 const authController = require('../controllers/authController');
+const { authenticate } = require('../middleware/auth');
 
 // Validation middleware
 const validatePhone = body('phoneNumber')
@@ -58,6 +59,17 @@ router.post('/verify-otp', validatePhone, validateOTP, async (req, res) => {
     const { phoneNumber, otp } = req.body;
     await otpService.verifyOTP(phoneNumber, otp);
 
+    const exists = await authController.userExists(phoneNumber);
+    let user = exists ? await authController.getUserByPhone(phoneNumber) : null;
+
+    if (!exists) {
+      await authController.createUser(phoneNumber, {
+        role: 'patient',
+        profileCompleted: false,
+      });
+      user = await authController.getUserByPhone(phoneNumber);
+    }
+
     // Generate JWT token
     const token = authController.generateToken(phoneNumber);
 
@@ -67,7 +79,17 @@ router.post('/verify-otp', validatePhone, validateOTP, async (req, res) => {
       token,
       user: {
         phoneNumber,
-        isNewUser: true, // Set based on user existence in DB
+        firstName: user?.firstName || '',
+        lastName: user?.lastName || '',
+        city: user?.city || '',
+        pincode: user?.pincode || '',
+        role: user?.role || 'patient',
+        assignedDoctorUserId: user?.assignedDoctorUserId || '',
+        assignedDoctorPhone: user?.assignedDoctorPhone || '',
+        assignedDoctorName: user?.assignedDoctorName || '',
+        isDonor: !!user?.isDonor,
+        profileCompleted: !!user?.profileCompleted,
+        isNewUser: !exists,
       },
     });
   } catch (error) {
@@ -80,9 +102,8 @@ router.post('/verify-otp', validatePhone, validateOTP, async (req, res) => {
 });
 
 // Create/Update User Profile
-router.post('/create-profile', (req, res) => {
+router.post('/create-profile', async (req, res) => {
   try {
-    // TODO: Implement profile creation with Firebase
     const {
       phoneNumber,
       firstName,
@@ -95,16 +116,64 @@ router.post('/create-profile', (req, res) => {
       state,
       pincode,
       preferredLanguage,
+      role,
+      assignedDoctorUserId,
+      assignedDoctorPhone,
+      assignedDoctorName,
+      isDonor,
     } = req.body;
+
+    if (!phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'phoneNumber is required',
+      });
+    }
+
+    const profilePayload = {
+      firstName: firstName || '',
+      lastName: lastName || '',
+      email: email || '',
+      gender: gender || '',
+      bloodType: bloodType || '',
+      address: address || '',
+      city: city || '',
+      state: state || '',
+      pincode: pincode || '',
+      preferredLanguage: preferredLanguage || 'en',
+      role: role || 'patient',
+      assignedDoctorUserId: assignedDoctorUserId || '',
+      assignedDoctorPhone: assignedDoctorPhone || '',
+      assignedDoctorName: assignedDoctorName || '',
+      isDonor: !!isDonor,
+      profileCompleted: true,
+    };
+
+    const exists = await authController.userExists(phoneNumber);
+    if (exists) {
+      await authController.updateUserProfile(phoneNumber, profilePayload);
+    } else {
+      await authController.createUser(phoneNumber, profilePayload);
+    }
+
+    const user = await authController.getUserByPhone(phoneNumber);
 
     res.json({
       success: true,
       message: 'Profile created successfully',
       user: {
         phoneNumber,
-        firstName,
-        lastName,
-        email,
+        firstName: user?.firstName || '',
+        lastName: user?.lastName || '',
+        email: user?.email || '',
+        city: user?.city || '',
+        pincode: user?.pincode || '',
+        role: user?.role || 'patient',
+        assignedDoctorUserId: user?.assignedDoctorUserId || '',
+        assignedDoctorPhone: user?.assignedDoctorPhone || '',
+        assignedDoctorName: user?.assignedDoctorName || '',
+        isDonor: !!user?.isDonor,
+        profileCompleted: !!user?.profileCompleted,
       },
     });
   } catch (error) {
@@ -112,6 +181,52 @@ router.post('/create-profile', (req, res) => {
     res.status(500).json({
       error: 'Failed to create profile',
       message: error.message,
+    });
+  }
+});
+
+// Current authenticated user profile
+router.get('/me', authenticate, async (req, res) => {
+  try {
+    const phoneNumber = req.user?.phoneNumber;
+    if (!phoneNumber) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid auth token payload',
+      });
+    }
+
+    const user = await authController.getUserByPhone(phoneNumber);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User profile not found',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      user: {
+        phoneNumber,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        city: user.city || '',
+        pincode: user.pincode || '',
+        role: user.role || 'patient',
+        assignedDoctorUserId: user.assignedDoctorUserId || '',
+        assignedDoctorPhone: user.assignedDoctorPhone || '',
+        assignedDoctorName: user.assignedDoctorName || '',
+        isDonor: !!user.isDonor,
+        preferredLanguage: user.preferredLanguage || 'en',
+        profileCompleted: !!user.profileCompleted,
+      },
+    });
+  } catch (error) {
+    console.error('Get current user error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to load current user profile',
+      error: error.message,
     });
   }
 });

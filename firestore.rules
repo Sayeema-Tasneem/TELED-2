@@ -1,0 +1,164 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.role == 'admin';
+    }
+
+    function isDoctor() {
+      return signedIn() && request.auth.token.role == 'doctor';
+    }
+
+    function isPatient() {
+      return signedIn() && request.auth.token.role == 'patient';
+    }
+
+    match /users/{userId} {
+      allow read, update: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+
+      match /medicineSchedules/{medicineId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+
+      match /medicineIntakeLogs/{logId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+
+      match /prescriptions/{prescriptionId} {
+        allow read: if isOwner(userId) || isAdmin() || isDoctor();
+        allow write: if isAdmin() || isDoctor();
+      }
+
+      match /consultations/{consultationId} {
+        allow read: if isOwner(userId) || isAdmin() || isDoctor();
+        allow write: if isAdmin() || isDoctor();
+      }
+
+      match /healthTimeline/{eventId} {
+        allow read: if isOwner(userId) || isAdmin() || isDoctor();
+        allow write: if isAdmin() || isDoctor();
+      }
+
+      match /equipmentBookings/{bookingId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    match /doctors/{doctorId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+
+      match /availability/{date} {
+        allow read: if signedIn();
+        allow write: if isAdmin() || (isDoctor() && request.auth.uid == doctorId);
+      }
+    }
+
+    match /appointments/{appointmentId} {
+      allow read: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.doctorId == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow create: if signedIn() && (
+        request.resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow update: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.doctorId == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    match /chatSessions/{sessionId} {
+      allow read: if signedIn() && request.auth.uid in resource.data.participantIds || isAdmin();
+      allow create: if signedIn();
+      allow update: if signedIn() && request.auth.uid in resource.data.participantIds || isAdmin();
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        allow read, create, update: if signedIn() &&
+          request.auth.uid in get(/databases/$(database)/documents/chatSessions/$(sessionId)).data.participantIds
+          || isAdmin();
+        allow delete: if isAdmin();
+      }
+    }
+
+    match /calls/{callId} {
+      allow read, update: if signedIn() && (
+        resource.data.initiatorUserId == request.auth.uid ||
+        resource.data.recipientUserId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if signedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /callHistory/{callId} {
+      allow read: if signedIn() && (
+        resource.data.initiatorUserId == request.auth.uid ||
+        resource.data.recipientUserId == request.auth.uid ||
+        isAdmin()
+      );
+      allow write: if isAdmin();
+    }
+
+    match /hospitals/{hospitalId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /equipment/{equipmentId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+
+      match /slots/{slotId} {
+        allow read: if signedIn();
+        allow write: if isAdmin();
+      }
+    }
+
+    match /equipmentBookings/{bookingId} {
+      allow read: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if signedIn() && (
+        request.resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read, update: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /symptomRules/{ruleId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+  }
+}

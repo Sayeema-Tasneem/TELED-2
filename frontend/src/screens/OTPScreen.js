@@ -5,14 +5,16 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import languageService from '../services/languageService';
 import authService from '../services/authService';
+import { A11Y_COLORS, fs, MIN_BUTTON_HEIGHT, MIN_TOUCH_HEIGHT } from '../theme/accessibility';
+import VoiceHelpIcon from '../components/VoiceHelpIcon';
 
 const t = (key, defaultValue = '') => languageService.t(key, defaultValue);
 
@@ -22,6 +24,14 @@ export default function OTPScreen({ navigation, route }) {
   const [timer, setTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [currentLanguage, setCurrentLanguage] = useState(languageService.getCurrentLanguage());
+
+  useEffect(() => {
+    const unsubscribe = languageService.subscribe((nextLanguage) => {
+      setCurrentLanguage(nextLanguage);
+    });
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     if (timer === 0) {
@@ -104,6 +114,10 @@ export default function OTPScreen({ navigation, route }) {
             <Text style={styles.backButton}>← {t('common.back')}</Text>
           </TouchableOpacity>
           <Text style={styles.title}>{t('auth.verifyOTP')}</Text>
+          <VoiceHelpIcon 
+            screenName="OTP"
+            language={currentLanguage}
+          />
         </View>
 
         <View style={styles.form}>
@@ -155,7 +169,7 @@ export default function OTPScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: A11Y_COLORS.background,
   },
   content: {
     flex: 1,
@@ -166,65 +180,68 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   backButton: {
-    fontSize: 16,
-    color: '#1f4788',
+    fontSize: fs(16),
+    color: A11Y_COLORS.brand,
     marginBottom: 16,
     fontWeight: '600',
   },
   title: {
-    fontSize: 28,
+    fontSize: fs(28),
     fontWeight: 'bold',
-    color: '#333',
+    color: A11Y_COLORS.textPrimary,
   },
   desc: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: fs(14),
+    color: A11Y_COLORS.textSecondary,
     marginBottom: 24,
   },
   form: {
     marginTop: 40,
   },
   label: {
-    fontSize: 16,
+    fontSize: fs(16),
     fontWeight: '600',
-    color: '#333',
+    color: A11Y_COLORS.textPrimary,
     marginBottom: 16,
   },
   input: {
     borderWidth: 2,
-    borderColor: '#ddd',
+    borderColor: A11Y_COLORS.border,
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    fontSize: 20,
+    fontSize: fs(20),
     letterSpacing: 4,
     marginBottom: 24,
-    backgroundColor: '#f9f9f9',
-    color: '#333',
+    backgroundColor: A11Y_COLORS.surface,
+    color: A11Y_COLORS.textPrimary,
+    minHeight: MIN_TOUCH_HEIGHT,
   },
   button: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: A11Y_COLORS.success,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
+    minHeight: MIN_BUTTON_HEIGHT,
+    justifyContent: 'center',
   },
   buttonDisabled: {
-    backgroundColor: '#ddd',
+    backgroundColor: '#9CA3AF',
   },
   buttonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: fs(18),
     fontWeight: 'bold',
   },
   footer: {
     alignItems: 'center',
   },
   timerText: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: fs(14),
+    color: A11Y_COLORS.textMuted,
   },
   resendLink: {
-    color: '#4CAF50',
+    color: A11Y_COLORS.brand,
     fontWeight: '600',
   },
 });

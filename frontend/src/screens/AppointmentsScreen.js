@@ -5,9 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import languageService from '../services/languageService';
 
 const t = (key, defaultValue = '') => languageService.t(key, defaultValue);
@@ -231,7 +231,7 @@ export default function AppointmentsScreen({ navigation }) {
             {activeTab === 'upcoming' && (
               <TouchableOpacity
                 style={styles.bookButton}
-                onPress={() => navigation.navigate('Doctor')}
+                onPress={() => navigation.navigate('DoctorStack')}
               >
                 <Text style={styles.bookButtonText}>Book an Appointment</Text>
               </TouchableOpacity>

@@ -1,342 +1,793 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   TextInput,
-  Modal,
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import languageService from '../services/languageService';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import simpleApiService from '../services/simpleApiService';
+import NotificationService from '../services/notificationService';
+import VoiceHelpIcon from '../components/VoiceHelpIcon';
 
-const t = (key, defaultValue = '') => languageService.t(key, defaultValue);
+const ALL_TIME_SLOTS = [
+  '09:00 AM',
+  '09:30 AM',
+  '10:00 AM',
+  '10:30 AM',
+  '11:00 AM',
+  '02:00 PM',
+  '02:30 PM',
+  '03:00 PM',
+  '03:30 PM',
+  '04:00 PM',
+];
 
-const TimeSlotGrid = ({ slots, selectedTime, onSelectTime }) => (
-  <View style={styles.slotsGrid}>
-    {slots.map((slot, index) => (
-      <TouchableOpacity
-        key={index}
-        style={[
-          styles.timeSlot,
-          selectedTime === slot && styles.timeSlotSelected,
-        ]}
-        onPress={() => onSelectTime(slot)}
-      >
-        <Text
-          style={[
-            styles.timeSlotText,
-            selectedTime === slot && styles.timeSlotTextSelected,
-          ]}
-        >
-          {slot}
-        </Text>
-      </TouchableOpacity>
-    ))}
-  </View>
-);
+const SPECIALTY_ALIAS_MAP = {
+  'ent specialist': 'ENT',
+  ent: 'ENT',
+  otolaryngologist: 'ENT',
+  gynecologist: 'Gynecologist',
+  gynaecologist: 'Gynecologist',
+  obstetrician: 'Gynecologist',
+  'women health': 'Gynecologist',
+  'womens health': 'Gynecologist',
+  hepatology: 'Hepatologist',
+  hepatologist: 'Hepatologist',
+  allergology: 'Allergist',
+  allergist: 'Allergist',
+  endocrinology: 'Endocrinologist',
+  endocrinologist: 'Endocrinologist',
+  urology: 'Urologist',
+  urologist: 'Urologist',
+  nephrology: 'Nephrologist',
+  nephrologist: 'Nephrologist',
+  psychiatry: 'Psychiatrist',
+  psychiatrist: 'Psychiatrist',
+  psychology: 'Psychologist',
+  psychologist: 'Psychologist',
+  pediatrician: 'Pediatrics',
+  paediatrician: 'Pediatrics',
+  'general medicine': 'General Physician',
+  physician: 'General Physician',
+};
 
-export default function BookAppointmentScreen({ route, navigation }) {
-  const { doctorId } = route.params;
-  const [step, setStep] = useState(1); // 1: Date, 2: Time, 3: Details, 4: Confirm
+const SPECIALTY_RULES = [
+  {
+    specialty: 'Cardiologist',
+    keywords: [
+      'chest pain', 'palpitation', 'heart pain', 'high blood pressure', 'high bp', 'blood pressure',
+      'chest pressure', 'heart',
+    ],
+  },
+  {
+    specialty: 'Pulmonologist',
+    keywords: [
+      'breathing problem', 'shortness of breath', 'breathlessness', 'asthma attack', 'asthma',
+      'wheezing', 'chronic cough', 'cough with breathlessness', 'lung', 'cough with blood',
+    ],
+  },
+  {
+    specialty: 'ENT',
+    keywords: [
+      'ear pain', 'earache', 'ear infection', 'ear discharge', 'hearing loss', 'ringing ear',
+      'sore throat', 'throat pain', 'sinus pain', 'sinus', 'nose block', 'tonsil', 'voice change',
+      'runny nose', 'nose', 'throat',
+    ],
+  },
+  {
+    specialty: 'Dentist',
+    keywords: [
+      'tooth pain', 'toothache', 'bleeding gums', 'gum bleeding', 'gum pain', 'teeth', 'tooth', 'dental',
+    ],
+  },
+  {
+    specialty: 'Gastroenterologist',
+    keywords: [
+      'stomach pain', 'abdominal pain', 'acidity', 'gas', 'constipation', 'diarrhea', 'loose motion',
+      'vomiting', 'nausea', 'ulcer', 'stomach', 'abdomen',
+    ],
+  },
+  {
+    specialty: 'Hepatologist',
+    keywords: [
+      'liver pain', 'jaundice', 'liver',
+    ],
+  },
+  {
+    specialty: 'Dermatologist',
+    keywords: [
+      'skin rash', 'itching skin', 'itching', 'eczema', 'fungal', 'acne', 'pimples', 'hair loss', 'skin', 'rash',
+    ],
+  },
+  {
+    specialty: 'Allergist',
+    keywords: [
+      'allergy', 'allergic', 'sneezing allergy',
+    ],
+  },
+  {
+    specialty: 'Orthopedic',
+    keywords: [
+      'joint pain', 'knee pain', 'back pain', 'neck pain', 'shoulder pain', 'bone pain', 'bone fracture',
+      'fracture', 'muscle pain', 'joint', 'knee', 'back', 'neck', 'bone',
+    ],
+  },
+  {
+    specialty: 'Endocrinologist',
+    keywords: [
+      'diabetes symptoms', 'diabetes', 'thyroid problem', 'thyroid', 'obesity',
+    ],
+  },
+  {
+    specialty: 'Urologist',
+    keywords: [
+      'frequent urination', 'blood in urine', 'urinary', 'urine',
+    ],
+  },
+  {
+    specialty: 'Nephrologist',
+    keywords: [
+      'kidney pain', 'kidney',
+    ],
+  },
+  {
+    specialty: 'Ophthalmologist',
+    keywords: [
+      'eye pain', 'blurred vision', 'blur vision', 'vision blur', 'red eyes', 'eye redness', 'eye infection',
+      'watery eyes', 'eye', 'vision',
+    ],
+  },
+  {
+    specialty: 'Gynecologist',
+    keywords: [
+      'pregnancy symptoms', 'pregnancy', 'irregular periods', 'irregular period', 'period pain', 'pcos',
+      'white discharge', 'uterus', 'women', 'gyne', 'menstrual', 'pelvic pain',
+    ],
+  },
+  {
+    specialty: 'Psychiatrist',
+    keywords: [
+      'anxiety', 'depression',
+    ],
+  },
+  {
+    specialty: 'Psychologist',
+    keywords: [
+      'stress',
+    ],
+  },
+  {
+    specialty: 'Neurologist',
+    keywords: [
+      'headache', 'migraine', 'seizure', 'fits', 'numbness', 'tingling', 'memory loss', 'dizziness',
+      'headache with dizziness', 'nerve', 'brain',
+    ],
+  },
+  {
+    specialty: 'Pediatrics',
+    keywords: [
+      'baby', 'child', 'kid', 'children', 'newborn', 'pediatric', 'infant',
+    ],
+  },
+  {
+    specialty: 'General Physician',
+    keywords: [
+      'fever', 'cold', 'body ache', 'weakness', 'fatigue', 'viral', 'infection',
+      'pain',
+    ],
+  },
+];
 
-  // Mock doctor data
-  const [doctor] = useState({
-    id: doctorId,
-    name: 'Dr. Rajesh Singh',
-    specialization: 'General Physician',
-    consultationFee: 500,
-  });
+const getNextSevenDays = () => {
+  const days = [];
 
-  const [selectedDate, setSelectedDate] = useState('2024-03-07');
-  const [selectedTime, setSelectedTime] = useState('');
-  const [selectedConsultationType, setSelectedConsultationType] = useState('In-Person');
-  const [selectedSymptoms, setSelectedSymptoms] = useState('');
-  const [loading, setLoading] = useState(false);
+  for (let index = 0; index < 7; index += 1) {
+    const date = new Date();
+    date.setDate(date.getDate() + index);
 
-  // Available dates for next 7 days
-  const availableDates = ['2024-03-07', '2024-03-08', '2024-03-09', '2024-03-10'];
+    days.push({
+      value: date.toISOString().split('T')[0],
+      label: date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+      weekday: date.toLocaleDateString('en-IN', { weekday: 'short' }),
+      fullLabel: date.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+    });
+  }
 
-  // Mock time slots
-  const timeSlots =
-    selectedDate === '2024-03-07'
-      ? [
-          '09:00 AM',
-          '09:30 AM',
-          '10:30 AM',
-          '11:00 AM',
-          '02:00 PM',
-          '03:00 PM',
-          '03:30 PM',
-          '04:00 PM',
-        ]
-      : [
-          '09:00 AM',
-          '09:30 AM',
-          '10:00 AM',
-          '11:00 AM',
-          '02:00 PM',
-          '02:30 PM',
-          '03:00 PM',
-          '04:00 PM',
-        ];
+  return days;
+};
 
-  const consultationTypes = ['In-Person', 'Video Call', 'Audio Call'];
-  const commonSymptoms = [
-    'Fever',
-    'Cough',
-    'Cold',
-    'Headache',
-    'Body Pain',
-    'Weakness',
+const parseSlotDateTime = (dateValue, timeValue) => {
+  if (!dateValue || !timeValue) {
+    return null;
+  }
+
+  const [datePart] = String(dateValue).split('T');
+  const [time, modifier = 'AM'] = String(timeValue).split(' ');
+  const [hourString = '9', minuteString = '00'] = String(time || '09:00').split(':');
+
+  let hours = Number(hourString);
+  const minutes = Number(minuteString);
+
+  if (modifier.toUpperCase() === 'PM' && hours < 12) {
+    hours += 12;
+  }
+
+  if (modifier.toUpperCase() === 'AM' && hours === 12) {
+    hours = 0;
+  }
+
+  const parsedDate = new Date(`${datePart}T00:00:00`);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null;
+  }
+
+  parsedDate.setHours(hours, minutes, 0, 0);
+  return parsedDate;
+};
+
+const normalizeSpecialtyName = (specialty = '') => {
+  const normalized = String(specialty || '').trim();
+  if (!normalized) {
+    return '';
+  }
+
+  const alias = SPECIALTY_ALIAS_MAP[normalized.toLowerCase()];
+  return alias || normalized;
+};
+
+const keywordScore = (text, keyword) => {
+  const normalizedKeyword = String(keyword || '').trim().toLowerCase();
+  if (!normalizedKeyword) {
+    return 0;
+  }
+
+  if (text.includes(normalizedKeyword)) {
+    return normalizedKeyword.includes(' ') ? 3 : 2;
+  }
+
+  return 0;
+};
+
+const hasAnyKeyword = (text, keywords = []) =>
+  keywords.some((keyword) => keywordScore(text, keyword) > 0);
+
+const pickAvailableSpecialty = (preferred, fallbackList, availableSpecialties) => {
+  if (availableSpecialties.size === 0) {
+    return preferred;
+  }
+
+  if (availableSpecialties.has(preferred)) {
+    return preferred;
+  }
+
+  const fallback = (fallbackList || []).find((item) => availableSpecialties.has(item));
+  if (fallback) {
+    return fallback;
+  }
+
+  if (availableSpecialties.has('General Physician')) {
+    return 'General Physician';
+  }
+
+  return availableSpecialties.values().next().value || 'General Physician';
+};
+
+const inferSpecialtyFromSymptoms = (symptomsText, doctors = []) => {
+  const normalizedText = String(symptomsText || '').trim().toLowerCase();
+  if (!normalizedText) {
+    return 'General Physician';
+  }
+
+  const availableSpecialties = new Set(
+    (Array.isArray(doctors) ? doctors : [])
+      .map((doctor) => normalizeSpecialtyName(doctor?.specialty))
+      .filter(Boolean)
+  );
+
+  const pulmonaryRedFlags = [
+    'shortness of breath', 'breathlessness', 'breathing problem', 'difficulty breathing',
+    'wheezing', 'asthma', 'chronic cough', 'cough with blood', 'cough with breathlessness',
   ];
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
-    return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]}`;
+  const cardioRedFlags = [
+    'chest pain', 'chest pressure', 'heart pain', 'palpitation', 'high blood pressure', 'high bp',
+  ];
+
+  const neuroRedFlags = [
+    'seizure', 'fits', 'numbness', 'memory loss', 'headache with dizziness',
+  ];
+
+  const commonGeneralSymptoms = [
+    'cough', 'cold', 'fever', 'runny nose', 'sore throat', 'throat pain',
+    'body ache', 'body pain', 'weakness', 'fatigue', 'headache',
+    'vomiting', 'nausea', 'loose motion', 'diarrhea', 'acidity', 'gas',
+  ];
+
+  if (hasAnyKeyword(normalizedText, pulmonaryRedFlags)) {
+    return pickAvailableSpecialty('Pulmonologist', ['General Physician'], availableSpecialties);
+  }
+
+  if (hasAnyKeyword(normalizedText, cardioRedFlags)) {
+    return pickAvailableSpecialty('Cardiologist', ['General Physician'], availableSpecialties);
+  }
+
+  if (hasAnyKeyword(normalizedText, neuroRedFlags)) {
+    return pickAvailableSpecialty('Neurologist', ['General Physician'], availableSpecialties);
+  }
+
+  if (hasAnyKeyword(normalizedText, commonGeneralSymptoms)) {
+    return pickAvailableSpecialty('General Physician', ['ENT', 'Pulmonologist'], availableSpecialties);
+  }
+
+  const scores = SPECIALTY_RULES.map((rule) => {
+    const specialty = normalizeSpecialtyName(rule.specialty);
+    const score = rule.keywords.reduce((total, keyword) => total + keywordScore(normalizedText, keyword), 0);
+
+    return {
+      specialty,
+      score,
+      available: availableSpecialties.size === 0 ? true : availableSpecialties.has(specialty),
+    };
+  });
+
+  const bestAvailable = scores
+    .filter((item) => item.available && item.score > 0)
+    .sort((left, right) => right.score - left.score)[0];
+
+  if (bestAvailable) {
+    return bestAvailable.specialty;
+  }
+
+  const bestAny = scores
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score)[0];
+
+  if (bestAny) {
+    return bestAny.specialty;
+  }
+
+  if (availableSpecialties.has('General Physician')) {
+    return 'General Physician';
+  }
+
+  return availableSpecialties.values().next().value || 'General Physician';
+};
+
+export default function BookAppointmentScreen({ route, navigation }) {
+  const patient = route.params?.patient;
+    const navigateBackToDashboard = () => {
+      if (route.params?.doctor) {
+        navigation.navigate('DoctorDashboard', { doctor: route.params.doctor });
+        return;
+      }
+
+      if (patient) {
+        navigation.navigate('PatientDashboard', { patient });
+        return;
+      }
+
+      navigation.navigate('RoleSelect');
+    };
+
+  const initialMode = route.params?.mode || null;
+  const initialSymptoms = route.params?.prefilledSymptoms || '';
+  const initialRecommendedSpecialist = route.params?.recommendedSpecialist || '';
+
+  const [stage, setStage] = useState(
+    initialMode ? (initialMode === 'suggested' && !initialRecommendedSpecialist ? 'suggest' : 'doctor') : 'mode'
+  );
+  const [consultMode, setConsultMode] = useState(initialMode);
+  const [symptomsText, setSymptomsText] = useState(initialSymptoms);
+  const [recommendedSpecialty, setRecommendedSpecialty] = useState(normalizeSpecialtyName(initialRecommendedSpecialist));
+  const [doctors, setDoctors] = useState([]);
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(getNextSevenDays()[0].value);
+  const [selectedTime, setSelectedTime] = useState('');
+  const [bookedSlots, setBookedSlots] = useState([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(true);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [booking, setBooking] = useState(false);
+
+  const availableDates = useMemo(() => getNextSevenDays(), []);
+
+  const upcomingSlots = useMemo(() => {
+    const now = Date.now();
+
+    return ALL_TIME_SLOTS.filter((slot) => {
+      const slotDateTime = parseSlotDateTime(selectedDate, slot);
+      return slotDateTime ? slotDateTime.getTime() > now : true;
+    });
+  }, [selectedDate]);
+
+  useEffect(() => {
+    const loadDoctors = async () => {
+      try {
+        const result = await simpleApiService.getDoctors();
+        const doctorList = Array.isArray(result?.doctors) ? result.doctors : [];
+        setDoctors(doctorList);
+      } catch (error) {
+        Alert.alert('Error', error.message || 'Failed to load doctors');
+      } finally {
+        setLoadingDoctors(false);
+      }
+    };
+
+    loadDoctors();
+  }, []);
+
+  const filteredDoctors = useMemo(() => {
+    if (!recommendedSpecialty) {
+      return doctors;
+    }
+
+    const filtered = doctors.filter((doctor) => (
+      normalizeSpecialtyName(doctor.specialty) === normalizeSpecialtyName(recommendedSpecialty)
+      || doctor.specialty === recommendedSpecialty
+    ));
+    return filtered.length > 0 ? filtered : doctors;
+  }, [doctors, recommendedSpecialty]);
+
+  useEffect(() => {
+    if (!selectedDoctor && filteredDoctors.length > 0) {
+      setSelectedDoctor(filteredDoctors[0]);
+    }
+  }, [filteredDoctors, selectedDoctor]);
+
+  useEffect(() => {
+    const loadBookedSlots = async () => {
+      if (!selectedDoctor?.name || !selectedDate) {
+        setBookedSlots([]);
+        return;
+      }
+
+      try {
+        setLoadingSlots(true);
+        const result = await simpleApiService.getAppointments({ doctorName: selectedDoctor.name, status: 'scheduled' });
+        const appointments = Array.isArray(result?.appointments) ? result.appointments : [];
+        const occupiedSlots = appointments
+          .filter((appointment) => (appointment.appointmentDate || appointment.date) === selectedDate)
+          .map((appointment) => appointment.appointmentTime)
+          .filter(Boolean);
+
+        setBookedSlots(occupiedSlots);
+        if (selectedTime && occupiedSlots.includes(selectedTime)) {
+          setSelectedTime('');
+        }
+      } catch (error) {
+        setBookedSlots([]);
+      } finally {
+        setLoadingSlots(false);
+      }
+    };
+
+    loadBookedSlots();
+  }, [selectedDate, selectedDoctor?.name, selectedTime]);
+
+  useEffect(() => {
+    if (selectedTime && !upcomingSlots.includes(selectedTime)) {
+      setSelectedTime('');
+    }
+  }, [selectedTime, upcomingSlots]);
+
+  const handleChooseMode = (mode) => {
+    setConsultMode(mode);
+    setRecommendedSpecialty('');
+    setStage(mode === 'suggested' ? 'suggest' : 'doctor');
   };
 
-  const handleConfirmBooking = async () => {
-    if (!selectedDate || !selectedTime || !selectedSymptoms) {
-      Alert.alert('Error', 'Please fill all required fields');
+  const handleChooseDoctor = (specialty, voiceSymptoms = []) => {
+    const normalizedSpecialty = normalizeSpecialtyName(specialty);
+    const text = Array.isArray(voiceSymptoms) && voiceSymptoms.length > 0
+      ? voiceSymptoms.join(', ')
+      : '';
+
+    setConsultMode('suggested');
+    if (text) {
+      setSymptomsText(text);
+    }
+    setRecommendedSpecialty(normalizedSpecialty);
+    setStage('doctor');
+  };
+
+  const handleSuggestDoctor = () => {
+    if (!symptomsText.trim()) {
+      Alert.alert('Symptoms required', 'Please write your symptoms to get a doctor suggestion.');
       return;
     }
 
-    try {
-      setLoading(true);
-      // Simulate API call to book appointment
-      await new Promise(resolve => setTimeout(resolve, 1500));
+    setRecommendedSpecialty(inferSpecialtyFromSymptoms(symptomsText, doctors));
+    setStage('doctor');
+  };
 
-      Alert.alert('Success', 'Appointment booked successfully!', [
-        {
-          text: 'View Appointment',
-          onPress: () => navigation.navigate('Appointments'),
-        },
-        {
-          text: 'Continue',
-          onPress: () => navigation.popToTop(),
-        },
-      ]);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to book appointment');
-    } finally {
-      setLoading(false);
+  const handleBookAppointment = async () => {
+    if (!patient?.phone || !patient?.name) {
+      Alert.alert('Login required', 'Please log in again before booking an appointment.');
+      return;
     }
+
+    if (!selectedDoctor || !selectedDate || !selectedTime) {
+      Alert.alert('Incomplete booking', 'Please choose doctor, date, and time.');
+      return;
+    }
+
+    const selectedDateInfo = availableDates.find((date) => date.value === selectedDate);
+
+    try {
+      setBooking(true);
+
+      const result = await simpleApiService.createAppointment({
+        patientId: patient.id || patient.phone,
+        patientName: patient.name,
+        patientPhone: patient.phone,
+        doctorId: selectedDoctor.id || selectedDoctor.name,
+        doctorName: selectedDoctor.name,
+        doctorSpecialty: selectedDoctor.specialty,
+        date: selectedDate,
+        appointmentDate: selectedDate,
+        appointmentTime: selectedTime,
+        appointmentDay: selectedDateInfo?.weekday || '',
+        consultationType: 'Video Call',
+        reason: symptomsText.trim() || 'General consultation',
+        symptoms: symptomsText.trim(),
+        suggestedSpecialty: recommendedSpecialty,
+        suggestedBySymptoms: consultMode === 'suggested',
+      });
+
+      // Schedule appointment notifications
+      await NotificationService.scheduleAppointmentNotifications({
+        appointmentId: result?.appointment?.id,
+        patientName: patient.name,
+        doctorName: selectedDoctor.name,
+        appointmentDate: selectedDate,
+        appointmentTime: selectedTime,
+      }).catch((error) => {
+        console.warn('Failed to schedule appointment notifications:', error);
+      });
+
+      Alert.alert(
+        'Appointment booked',
+        `Your appointment with ${selectedDoctor.name} is booked for ${selectedDateInfo?.fullLabel || selectedDate} at ${selectedTime}.`,
+        [
+          {
+            text: 'Join Video Call',
+            onPress: () => navigation.navigate('VideoCall', {
+              patient,
+              focusAppointmentId: result?.appointment?.id,
+            }),
+          },
+          {
+            text: 'Done',
+            onPress: navigateBackToDashboard,
+          },
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Booking failed', error.message || 'Unable to book this appointment right now.');
+    } finally {
+      setBooking(false);
+    }
+  };
+
+  const handleBack = () => {
+    if (stage === 'mode') {
+      navigateBackToDashboard();
+      return;
+    }
+
+    if (stage === 'suggest') {
+      setStage('mode');
+      return;
+    }
+
+    if (stage === 'doctor') {
+      if (consultMode === 'suggested' && !route.params?.recommendedSpecialist) {
+        setStage('suggest');
+      } else {
+        setStage('mode');
+      }
+      return;
+    }
+
+    if (stage === 'schedule') {
+      setStage('doctor');
+      return;
+    }
+
+    setStage('schedule');
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => (step === 1 ? navigation.goBack() : setStep(step - 1))}
-        >
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Book Appointment</Text>
-        <Text style={styles.stepIndicator}>
-          Step {step} of 4
-        </Text>
-      </View>
-
-      {/* Progress Bar */}
-      <View style={styles.progressContainer}>
-        {[1, 2, 3, 4].map(index => (
-          <View
-            key={index}
-            style={[
-              styles.progressDot,
-              index <= step && styles.progressDotActive,
-            ]}
+        <View style={[styles.headerSide, styles.headerSideLeft]} />
+        <Text style={styles.headerTitle} numberOfLines={1}>Consult Doctor</Text>
+        <View style={[styles.headerSide, styles.headerSideRight]}>
+          <VoiceHelpIcon 
+            screenName="BookAppointment"
+            language="en"
+            onDoctorSelect={(specialty, symptoms) => handleChooseDoctor(specialty, symptoms)}
+            onTimeSelect={(time) => setSelectedTime(time)}
+            voicePrompt="Tell me your problem or the doctor you want. For example fever doctor or skin problem or dentist"
+            followUpPrompt="I found doctors for your problem. Do you want to book the first available appointment"
+            unclearPrompt="Sorry I did not understand. Please say something like fever doctor or heart problem"
           />
-        ))}
+        </View>
       </View>
 
-      <ScrollView style={styles.content}>
-        {/* Doctor Info */}
-        <View style={styles.doctorSummary}>
-          <Text style={styles.doctorSummaryTitle}>{doctor.name}</Text>
-          <Text style={styles.doctorSummarySpec}>{doctor.specialization}</Text>
-        </View>
-
-        {/* Step 1: Select Date */}
-        {step === 1 && (
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+        {stage === 'mode' && (
           <View>
-            <Text style={styles.stepTitle}>Select Date</Text>
-            <View style={styles.dateGrid}>
-              {availableDates.map(date => (
-                <TouchableOpacity
-                  key={date}
-                  style={[
-                    styles.dateCard,
-                    selectedDate === date && styles.dateCardSelected,
-                  ]}
-                  onPress={() => {
-                    setSelectedDate(date);
-                    setSelectedTime('');
-                  }}
-                >
-                  <Text style={styles.dateCardText}>{formatDate(date)}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <Text style={styles.sectionTitle}>How would you like to consult?</Text>
+            <TouchableOpacity style={styles.optionCard} onPress={() => handleChooseMode('suggested')}>
+              <Text style={styles.optionTitle}>Get Suggested Doctor</Text>
+              <Text style={styles.optionText}>Write symptoms and get the right doctor suggestion automatically.</Text>
+            </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.nextButton}
-              onPress={() => setStep(2)}
-            >
-              <Text style={styles.nextButtonText}>Next</Text>
+            <TouchableOpacity style={styles.optionCard} onPress={() => handleChooseMode('choose')}>
+              <Text style={styles.optionTitle}>Choose Doctor</Text>
+              <Text style={styles.optionText}>Pick your doctor yourself and book any free time slot.</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Step 2: Select Time */}
-        {step === 2 && (
+        {stage === 'suggest' && (
           <View>
-            <Text style={styles.stepTitle}>
-              Select Time - {formatDate(selectedDate)}
-            </Text>
-            <TimeSlotGrid
-              slots={timeSlots}
-              selectedTime={selectedTime}
-              onSelectTime={setSelectedTime}
-            />
-
-            <TouchableOpacity
-              style={styles.nextButton}
-              disabled={!selectedTime}
-              onPress={() => setStep(3)}
-            >
-              <Text style={styles.nextButtonText}>Next</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Step 3: Details */}
-        {step === 3 && (
-          <View>
-            <Text style={styles.stepTitle}>Consultation Details</Text>
-
-            {/* Consultation Type */}
-            <Text style={styles.fieldLabel}>Consultation Type</Text>
-            <View style={styles.optionsGrid}>
-              {consultationTypes.map(type => (
-                <TouchableOpacity
-                  key={type}
-                  style={[
-                    styles.optionCard,
-                    selectedConsultationType === type &&
-                      styles.optionCardSelected,
-                  ]}
-                  onPress={() => setSelectedConsultationType(type)}
-                >
-                  <Text
-                    style={[
-                      styles.optionCardText,
-                      selectedConsultationType === type &&
-                        styles.optionCardTextSelected,
-                    ]}
-                  >
-                    {type === 'In-Person' && '🏥 '}
-                    {type === 'Video Call' && '📹 '}
-                    {type === 'Audio Call' && '☎️ '}
-                    {type}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Symptoms */}
-            <Text style={styles.fieldLabel}>Chief Complaints</Text>
+            <Text style={styles.sectionTitle}>Tell us your symptoms</Text>
             <TextInput
-              style={styles.textInput}
-              placeholder="Describe your symptoms..."
-              placeholderTextColor="#999"
-              value={selectedSymptoms}
-              onChangeText={setSelectedSymptoms}
+              value={symptomsText}
+              onChangeText={setSymptomsText}
+              placeholder="Example: fever, cough, body pain since 2 days"
+              placeholderTextColor="#7a8594"
+              style={styles.textArea}
               multiline
-              numberOfLines={4}
+              numberOfLines={5}
             />
 
-            {/* Common Symptoms Quick Add */}
-            <Text style={styles.fieldLabel}>Quick Select</Text>
-            <View style={styles.symptomsGrid}>
-              {commonSymptoms.map(symptom => (
-                <TouchableOpacity
-                  key={symptom}
-                  style={styles.symptomChip}
-                  onPress={() => {
-                    setSelectedSymptoms(
-                      selectedSymptoms ? selectedSymptoms + ', ' + symptom : symptom
-                    );
-                  }}
-                >
-                  <Text style={styles.symptomChipText}>{symptom}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <TouchableOpacity
-              style={styles.nextButton}
-              onPress={() => setStep(4)}
-            >
-              <Text style={styles.nextButtonText}>Next</Text>
+            <TouchableOpacity style={styles.primaryButton} onPress={handleSuggestDoctor}>
+              <Text style={styles.primaryButtonText}>Get Doctor Suggestion</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Step 4: Confirmation */}
-        {step === 4 && (
+        {stage === 'doctor' && (
           <View>
-            <Text style={styles.stepTitle}>Confirm Your Booking</Text>
+            <Text style={styles.sectionTitle}>{consultMode === 'suggested' ? 'Suggested doctor for your symptoms' : 'Choose your doctor'}</Text>
+
+            {!!recommendedSpecialty && (
+              <View style={styles.highlightCard}>
+                <Text style={styles.highlightTitle}>Recommended specialty</Text>
+                <Text style={styles.highlightText}>{recommendedSpecialty}</Text>
+              </View>
+            )}
+
+            {loadingDoctors ? (
+              <ActivityIndicator size="large" color="#1f6feb" />
+            ) : (
+              filteredDoctors.map((doctor) => {
+                const isSelected = selectedDoctor?.id === doctor.id;
+                return (
+                  <TouchableOpacity
+                    key={doctor.id}
+                    style={[styles.doctorCard, isSelected && styles.doctorCardSelected]}
+                    onPress={() => setSelectedDoctor(doctor)}
+                  >
+                    <Text style={[styles.doctorName, isSelected && styles.doctorNameSelected]}>{doctor.name}</Text>
+                    <Text style={[styles.doctorSpecialty, isSelected && styles.doctorNameSelected]}>{doctor.specialty}</Text>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+
+            <TouchableOpacity style={[styles.primaryButton, !selectedDoctor && styles.primaryButtonDisabled]} disabled={!selectedDoctor} onPress={() => setStage('schedule')}>
+              <Text style={styles.primaryButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {stage === 'schedule' && (
+          <View>
+            <Text style={styles.sectionTitle}>Select available slot</Text>
+            <Text style={styles.sectionSubtitle}>Already-booked slots are disabled automatically.</Text>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroller}>
+              {availableDates.map((date) => {
+                const isSelected = selectedDate === date.value;
+                return (
+                  <TouchableOpacity key={date.value} style={[styles.dateCard, isSelected && styles.dateCardSelected]} onPress={() => setSelectedDate(date.value)}>
+                    <Text style={[styles.dateWeekday, isSelected && styles.dateTextSelected]}>{date.weekday}</Text>
+                    <Text style={[styles.dateLabel, isSelected && styles.dateTextSelected]}>{date.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {loadingSlots ? (
+              <ActivityIndicator size="small" color="#1f6feb" style={styles.slotLoader} />
+            ) : (
+              <>
+                <View style={styles.slotGrid}>
+                  {upcomingSlots.map((slot) => {
+                    const isBooked = bookedSlots.includes(slot);
+                    const isSelected = selectedTime === slot;
+
+                    return (
+                      <TouchableOpacity
+                        key={slot}
+                        style={[styles.slotCard, isSelected && styles.slotCardSelected, isBooked && styles.slotCardDisabled]}
+                        disabled={isBooked}
+                        onPress={() => setSelectedTime(slot)}
+                      >
+                        <Text style={[styles.slotText, isSelected && styles.slotTextSelected, isBooked && styles.slotTextDisabled]}>{slot}</Text>
+                        {isBooked && <Text style={styles.slotStatus}>Booked</Text>}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {upcomingSlots.length === 0 && (
+                  <Text style={styles.noUpcomingSlotsText}>No upcoming slots are available for this date.</Text>
+                )}
+              </>
+            )}
+
+            <TouchableOpacity style={[styles.primaryButton, !selectedTime && styles.primaryButtonDisabled]} disabled={!selectedTime} onPress={() => setStage('confirm')}>
+              <Text style={styles.primaryButtonText}>Review Booking</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {stage === 'confirm' && (
+          <View>
+            <Text style={styles.sectionTitle}>Confirm your consultation</Text>
 
             <View style={styles.summaryCard}>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Doctor:</Text>
-                <Text style={styles.summaryValue}>{doctor.name}</Text>
+                <Text style={styles.summaryLabel}>Patient</Text>
+                <Text style={styles.summaryValue}>{patient?.name || 'Patient'}</Text>
               </View>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Date:</Text>
-                <Text style={styles.summaryValue}>{formatDate(selectedDate)}</Text>
+                <Text style={styles.summaryLabel}>Doctor</Text>
+                <Text style={styles.summaryValue}>{selectedDoctor?.name}</Text>
               </View>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Time:</Text>
+                <Text style={styles.summaryLabel}>Specialty</Text>
+                <Text style={styles.summaryValue}>{selectedDoctor?.specialty}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Date</Text>
+                <Text style={styles.summaryValue}>{availableDates.find((date) => date.value === selectedDate)?.fullLabel}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Time</Text>
                 <Text style={styles.summaryValue}>{selectedTime}</Text>
               </View>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Type:</Text>
-                <Text style={styles.summaryValue}>{selectedConsultationType}</Text>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Fee:</Text>
-                <Text style={styles.summaryValue}>₹{doctor.consultationFee}</Text>
+                <Text style={styles.summaryLabel}>Mode</Text>
+                <Text style={styles.summaryValue}>Video Call</Text>
               </View>
             </View>
 
-            <View style={styles.symptomsBox}>
-              <Text style={styles.fieldLabel}>Symptoms:</Text>
-              <Text style={styles.symptomsText}>{selectedSymptoms}</Text>
-            </View>
+            {!!symptomsText.trim() && (
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryLabel}>Symptoms / problem</Text>
+                <Text style={styles.symptomSummary}>{symptomsText}</Text>
+              </View>
+            )}
 
-            <TouchableOpacity
-              style={[styles.nextButton, styles.bookButtonFinal]}
-              onPress={handleConfirmBooking}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.nextButtonText}>Confirm & Book</Text>
-              )}
+            <TouchableOpacity style={[styles.primaryButton, booking && styles.primaryButtonDisabled]} disabled={booking} onPress={handleBookAppointment}>
+              {booking ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.primaryButtonText}>Book Appointment</Text>}
             </TouchableOpacity>
           </View>
         )}
+
+        <TouchableOpacity style={styles.footerBackButton} onPress={handleBack} activeOpacity={0.85}>
+          <Text style={styles.footerBackButtonText}>← Back</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -345,254 +796,277 @@ export default function BookAppointmentScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f5f8ff',
   },
   header: {
-    backgroundColor: '#1f4788',
+    backgroundColor: '#1157c2',
     paddingHorizontal: 16,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
   },
-  backButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+  headerSide: {
+    minWidth: 72,
+  },
+  headerSideLeft: {
+    alignItems: 'flex-start',
+  },
+  headerSideRight: {
+    alignItems: 'flex-end',
   },
   backButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
     color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  footerBackButton: {
+    marginTop: 8,
+    marginBottom: 4,
+    minHeight: 52,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#1157c2',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerBackButtonText: {
+    color: '#1157c2',
+    fontWeight: '800',
+    fontSize: 16,
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
     flex: 1,
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '800',
     textAlign: 'center',
-  },
-  stepIndicator: {
-    fontSize: 12,
-    color: '#e0e0e0',
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-  },
-  progressDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#ddd',
-  },
-  progressDotActive: {
-    backgroundColor: '#4CAF50',
+    marginHorizontal: 8,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
   },
-  doctorSummary: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#4CAF50',
+  contentContainer: {
+    padding: 16,
+    paddingBottom: 40,
   },
-  doctorSummaryTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#1f4788',
-  },
-  doctorSummarySpec: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
-  },
-  stepTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1f4788',
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0f2f67',
     marginBottom: 12,
   },
-  dateGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+  sectionSubtitle: {
+    fontSize: 14,
+    color: '#4c6487',
+    marginBottom: 12,
+  },
+  optionCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#d7e3f8',
+    padding: 18,
+    marginBottom: 14,
+  },
+  optionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#12396f',
+    marginBottom: 8,
+  },
+  optionText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#48627f',
+  },
+  textArea: {
+    minHeight: 120,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#c8d7ef',
+    backgroundColor: '#fff',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    textAlignVertical: 'top',
+    color: '#16355f',
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  primaryButton: {
+    minHeight: 58,
+    borderRadius: 14,
+    backgroundColor: '#1157c2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.45,
+  },
+  primaryButtonText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 17,
+  },
+  highlightCard: {
+    backgroundColor: '#e9f2ff',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#bdd3f7',
+  },
+  highlightTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#3562a5',
+    marginBottom: 4,
+  },
+  highlightText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#103b75',
+  },
+  doctorCard: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#d7e3f8',
+    padding: 16,
+    marginBottom: 12,
+  },
+  doctorCardSelected: {
+    borderColor: '#1157c2',
+    backgroundColor: '#ecf3ff',
+  },
+  doctorName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#12396f',
+    marginBottom: 4,
+  },
+  doctorNameSelected: {
+    color: '#1157c2',
+  },
+  doctorSpecialty: {
+    fontSize: 15,
+    color: '#4f6887',
+  },
+  dateScroller: {
     marginBottom: 16,
   },
   dateCard: {
-    flex: 1,
-    minWidth: '45%',
+    width: 88,
     backgroundColor: '#fff',
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  dateCardSelected: {
-    backgroundColor: '#4CAF50',
-    borderColor: '#4CAF50',
-  },
-  dateCardText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1f4788',
-  },
-  dateCardSelected: {
-    backgroundColor: '#4CAF50',
-    borderColor: '#4CAF50',
-  },
-  dateCardText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1f4788',
-  },
-  slotsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-  },
-  timeSlot: {
-    width: '31%',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  timeSlotSelected: {
-    backgroundColor: '#4CAF50',
-    borderColor: '#4CAF50',
-  },
-  timeSlotText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1f4788',
-  },
-  timeSlotTextSelected: {
-    color: '#fff',
-  },
-  fieldLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1f4788',
-    marginBottom: 10,
-    marginTop: 12,
-  },
-  optionsGrid: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
-  },
-  optionCard: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  optionCardSelected: {
-    backgroundColor: '#e8f5e9',
-    borderColor: '#4CAF50',
-  },
-  optionCardText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
-  },
-  optionCardTextSelected: {
-    color: '#4CAF50',
-  },
-  textInput: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 13,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    textAlignVertical: 'top',
-    marginBottom: 12,
-  },
-  symptomsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-  },
-  symptomChip: {
-    backgroundColor: '#f0f0f0',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  symptomChipText: {
-    fontSize: 12,
-    color: '#1f4788',
-    fontWeight: '500',
-  },
-  nextButton: {
-    backgroundColor: '#4CAF50',
-    borderRadius: 8,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#d7e3f8',
     paddingVertical: 14,
     alignItems: 'center',
-    marginBottom: 20,
+    marginRight: 10,
   },
-  nextButtonText: {
+  dateCardSelected: {
+    backgroundColor: '#1157c2',
+    borderColor: '#1157c2',
+  },
+  dateWeekday: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#355785',
+    marginBottom: 4,
+  },
+  dateLabel: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '800',
+    color: '#12396f',
+  },
+  dateTextSelected: {
     color: '#fff',
   },
-  bookButtonFinal: {
-    marginBottom: 40,
+  slotLoader: {
+    marginVertical: 10,
+  },
+  slotGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+  slotCard: {
+    width: '48%',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#d7e3f8',
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  slotCardSelected: {
+    backgroundColor: '#1157c2',
+    borderColor: '#1157c2',
+  },
+  slotCardDisabled: {
+    backgroundColor: '#eef2f7',
+    borderColor: '#d4dbe7',
+  },
+  slotText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#12396f',
+  },
+  slotTextSelected: {
+    color: '#fff',
+  },
+  slotTextDisabled: {
+    color: '#8b98aa',
+  },
+  slotStatus: {
+    fontSize: 12,
+    color: '#8b98aa',
+    marginTop: 4,
+    fontWeight: '700',
+  },
+  noUpcomingSlotsText: {
+    fontSize: 14,
+    color: '#5f7390',
+    fontWeight: '700',
+    marginBottom: 14,
+    textAlign: 'center',
   },
   summaryCard: {
     backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 14,
-    marginBottom: 16,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#d7e3f8',
+    padding: 16,
+    marginBottom: 14,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
+    marginBottom: 12,
+    gap: 12,
   },
   summaryLabel: {
-    fontSize: 13,
-    color: '#999',
-    fontWeight: '500',
+    fontSize: 15,
+    color: '#5c718d',
+    fontWeight: '700',
   },
   summaryValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1f4788',
+    flex: 1,
+    textAlign: 'right',
+    fontSize: 15,
+    color: '#12396f',
+    fontWeight: '800',
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#e0e0e0',
-    marginVertical: 8,
-  },
-  symptomsBox: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-  },
-  symptomsText: {
-    fontSize: 12,
-    color: '#666',
-    lineHeight: 18,
+  symptomSummary: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#16355f',
+    marginTop: 8,
   },
 });

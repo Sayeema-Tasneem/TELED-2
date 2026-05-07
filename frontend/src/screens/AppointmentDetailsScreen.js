@@ -5,9 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import languageService from '../services/languageService';
 
 const t = (key, defaultValue = '') => languageService.t(key, defaultValue);
@@ -18,13 +18,9 @@ export default function AppointmentDetailsScreen({ route, navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
+        <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>Appointment Details</Text>
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView style={styles.content}>
@@ -178,6 +174,10 @@ export default function AppointmentDetailsScreen({ route, navigation }) {
             </TouchableOpacity>
           </View>
         )}
+
+        <TouchableOpacity style={styles.footerBackButton} onPress={() => navigation.goBack()} activeOpacity={0.85}>
+          <Text style={styles.footerBackButtonText}>← Back</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -195,14 +195,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  backButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-  },
-  backButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
+  headerSpacer: {
+    width: 56,
   },
   headerTitle: {
     fontSize: 16,
@@ -210,6 +204,22 @@ const styles = StyleSheet.create({
     color: '#fff',
     flex: 1,
     textAlign: 'center',
+  },
+  footerBackButton: {
+    marginTop: 12,
+    marginBottom: 8,
+    minHeight: 52,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#1f4788',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerBackButtonText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1f4788',
   },
   content: {
     flex: 1,

@@ -5,10 +5,10 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import languageService from '../services/languageService';
 
 const t = (key, defaultValue = '') => languageService.t(key, defaultValue);
@@ -125,12 +125,7 @@ export default function DoctorProfileScreen({ route, navigation }) {
       <ScrollView>
         {/* Doctor Header */}
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
+          <View style={styles.headerSpacer} />
         </View>
 
         {/* Doctor Card */}
@@ -226,6 +221,10 @@ export default function DoctorProfileScreen({ route, navigation }) {
             <Text style={styles.callButtonText}>📞 Quick Call</Text>
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity style={styles.footerBackButton} onPress={() => navigation.goBack()} activeOpacity={0.85}>
+          <Text style={styles.footerBackButtonText}>← Back</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -239,18 +238,30 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#1f4788',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 16,
+    paddingTop: 20,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  backButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+  headerSpacer: {
+    width: 48,
   },
-  backButtonText: {
+  footerBackButton: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    minHeight: 52,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#1f4788',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerBackButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
+    fontWeight: '800',
+    color: '#1f4788',
   },
   loadingContainer: {
     flex: 1,
@@ -428,7 +439,9 @@ const styles = StyleSheet.create({
   },
   actionSection: {
     marginHorizontal: 16,
-    marginVertical: 20,
+    marginVertical: 12,
+    marginBottom: 8,
+    marginTop: 8,
     gap: 12,
   },
   bookButton: {

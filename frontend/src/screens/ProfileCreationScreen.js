@@ -6,7 +6,6 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   Modal,
@@ -14,8 +13,11 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import languageService from '../services/languageService';
 import authService from '../services/authService';
+import { A11Y_COLORS, fs, MIN_BUTTON_HEIGHT, MIN_TOUCH_HEIGHT } from '../theme/accessibility';
+import VoiceHelpIcon from '../components/VoiceHelpIcon';
 
 const t = (key, defaultValue = '') => languageService.t(key, defaultValue);
 
@@ -138,7 +140,7 @@ export default function ProfileCreationScreen({ navigation, route }) {
           onPress: () => {
             navigation.reset({
               index: 0,
-              routes: [{ name: 'Home' }],
+              routes: [{ name: 'MainApp', params: { screen: 'HomeTab' } }],
             });
           },
         },
@@ -156,7 +158,7 @@ export default function ProfileCreationScreen({ navigation, route }) {
     languageService.setLanguage(preferredLanguage);
     navigation.reset({
       index: 0,
-      routes: [{ name: 'Home' }],
+      routes: [{ name: 'MainApp', params: { screen: 'HomeTab' } }],
     });
   };
 
@@ -334,7 +336,7 @@ export default function ProfileCreationScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: A11Y_COLORS.background,
   },
   keyboardAvoid: {
     flex: 1,
@@ -343,17 +345,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    backgroundColor: '#1f4788',
+    backgroundColor: A11Y_COLORS.brand,
     paddingVertical: 24,
     paddingHorizontal: 20,
   },
   title: {
-    fontSize: 24,
+    fontSize: fs(24),
     fontWeight: 'bold',
     color: '#fff',
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: fs(14),
     color: '#e0e0e0',
     marginTop: 4,
   },
@@ -361,9 +363,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: fs(16),
     fontWeight: '600',
-    color: '#333',
+    color: A11Y_COLORS.textPrimary,
     marginBottom: 12,
     marginTop: 16,
   },
@@ -374,14 +376,15 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: A11Y_COLORS.border,
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 12,
-    fontSize: 14,
+    fontSize: fs(15),
     marginBottom: 12,
-    backgroundColor: '#f9f9f9',
-    color: '#333',
+    backgroundColor: A11Y_COLORS.surface,
+    color: A11Y_COLORS.textPrimary,
+    minHeight: MIN_TOUCH_HEIGHT,
   },
   halfWidth: {
     width: '48%',
@@ -390,25 +393,26 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   label: {
-    fontSize: 14,
+    fontSize: fs(14),
     fontWeight: '600',
-    color: '#333',
+    color: A11Y_COLORS.textPrimary,
     marginBottom: 8,
   },
   selectButton: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: A11Y_COLORS.border,
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#f9f9f9',
+    backgroundColor: A11Y_COLORS.surface,
+    minHeight: MIN_TOUCH_HEIGHT,
   },
   selectText: {
-    fontSize: 14,
-    color: '#333',
+    fontSize: fs(14),
+    color: A11Y_COLORS.textPrimary,
   },
   placeholder: {
     color: '#999',
@@ -440,8 +444,8 @@ const styles = StyleSheet.create({
     borderBottomColor: '#eee',
   },
   modalOptionText: {
-    fontSize: 14,
-    color: '#333',
+    fontSize: fs(14),
+    color: A11Y_COLORS.textPrimary,
   },
   languageButtons: {
     flexDirection: 'row',
@@ -453,18 +457,20 @@ const styles = StyleSheet.create({
     marginHorizontal: 6,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: A11Y_COLORS.border,
     borderRadius: 8,
     alignItems: 'center',
-    backgroundColor: '#f9f9f9',
+    backgroundColor: A11Y_COLORS.surface,
+    minHeight: MIN_TOUCH_HEIGHT,
+    justifyContent: 'center',
   },
   languageButtonActive: {
-    backgroundColor: '#4CAF50',
-    borderColor: '#4CAF50',
+    backgroundColor: A11Y_COLORS.success,
+    borderColor: A11Y_COLORS.success,
   },
   languageButtonText: {
-    fontSize: 12,
-    color: '#666',
+    fontSize: fs(12),
+    color: A11Y_COLORS.textSecondary,
   },
   languageButtonTextActive: {
     color: '#fff',
@@ -479,15 +485,15 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderWidth: 2,
-    borderColor: '#ddd',
+    borderColor: A11Y_COLORS.border,
     borderRadius: 4,
     marginRight: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxChecked: {
-    backgroundColor: '#4CAF50',
-    borderColor: '#4CAF50',
+    backgroundColor: A11Y_COLORS.success,
+    borderColor: A11Y_COLORS.success,
   },
   checkmark: {
     color: '#fff',
@@ -495,31 +501,35 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   checkboxLabel: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: fs(14),
+    color: A11Y_COLORS.textSecondary,
   },
   button: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: A11Y_COLORS.success,
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',
     marginBottom: 12,
+    minHeight: MIN_BUTTON_HEIGHT,
+    justifyContent: 'center',
   },
   buttonDisabled: {
-    backgroundColor: '#ddd',
+    backgroundColor: '#9CA3AF',
   },
   buttonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: fs(16),
     fontWeight: '600',
   },
   skipButton: {
     paddingVertical: 12,
     alignItems: 'center',
+    minHeight: 48,
+    justifyContent: 'center',
   },
   skipButtonText: {
-    color: '#4CAF50',
-    fontSize: 14,
+    color: A11Y_COLORS.brand,
+    fontSize: fs(14),
     fontWeight: '600',
   },
 });

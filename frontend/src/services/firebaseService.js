@@ -1,7 +1,7 @@
-import firebase from 'firebase/app';
-import 'firebase/auth';
-import 'firebase/firestore';
-import 'firebase/storage';
+﻿import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -12,20 +12,10 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-let firebaseApp;
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-try {
-  firebaseApp = firebase.initializeApp(firebaseConfig);
-  console.log('✅ Firebase initialized');
-} catch (error) {
-  console.error('❌ Firebase initialization error:', error.code);
-  if (error.code === 'app/duplicate-app') {
-    firebaseApp = firebase.app();
-  }
-}
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);
 
-export const auth = firebase.auth();
-export const db = firebase.firestore();
-export const storage = firebase.storage();
-
-export default firebase;
+export default app;

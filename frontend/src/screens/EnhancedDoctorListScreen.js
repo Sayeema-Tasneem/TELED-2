@@ -5,11 +5,11 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   TextInput,
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import languageService from '../services/languageService';
 
 const t = (key, defaultValue = '') => languageService.t(key, defaultValue);
@@ -51,16 +51,23 @@ const DoctorCard = ({ doctor, onPress }) => (
   </TouchableOpacity>
 );
 
-export default function EnhancedDoctorListScreen({ navigation }) {
+export default function EnhancedDoctorListScreen({ navigation, route }) {
   const [doctors, setDoctors] = useState([]);
   const [filteredDoctors, setFilteredDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpecialization, setSelectedSpecialization] = useState('All');
+  const recommendedSpecialization = route?.params?.recommendedSpecialization;
 
   useEffect(() => {
     fetchDoctors();
   }, []);
+
+  useEffect(() => {
+    if (recommendedSpecialization) {
+      setSelectedSpecialization(recommendedSpecialization);
+    }
+  }, [recommendedSpecialization]);
 
   const fetchDoctors = async () => {
     try {
@@ -169,6 +176,13 @@ export default function EnhancedDoctorListScreen({ navigation }) {
         <Text style={styles.subtitle}>
           {t('screens.doctor.subtitle', 'Book appointment with doctors')}
         </Text>
+        {recommendedSpecialization ? (
+          <View style={styles.recommendedBadge}>
+            <Text style={styles.recommendedText}>
+              {t('screens.doctor.recommendedForSymptoms', 'Recommended for symptoms')}: {recommendedSpecialization}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -264,6 +278,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#e0e0e0',
     marginTop: 4,
+  },
+  recommendedBadge: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  recommendedText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
   },
   content: {
     flex: 1,

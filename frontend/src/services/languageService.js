@@ -1,28 +1,46 @@
-import I18n from 'i18n-js';
-import * as Localization from 'expo-localization';
+import { I18n } from 'i18n-js';
+import { getLocales } from 'expo-localization';
 import en from '../locales/en.json';
 import hi from '../locales/hi.json';
 import kn from '../locales/kn.json';
 
-// Supported languages
-I18n.translations = {
+export const i18n = new I18n({
   en,
   hi,
   kn,
+});
+
+i18n.enableFallback = true;
+i18n.defaultLocale = 'en';
+
+const getDeviceLocale = () => {
+  const locales = getLocales();
+  return locales?.[0]?.languageTag || locales?.[0]?.languageCode || 'en';
 };
 
-// Set the locale
-I18n.locale = Localization.locale;
+const normalizeLocale = (locale) => {
+  if (!locale) return 'en';
 
-// Enable fallback to English
-I18n.enableFallback = true;
-I18n.fallbacks = {
-  'hi-IN': 'hi',
-  'kn-IN': 'kn',
+  if (locale.startsWith('hi')) return 'hi';
+  if (locale.startsWith('kn')) return 'kn';
+  return 'en';
 };
+
+i18n.locale = normalizeLocale(getDeviceLocale());
 
 // Initialize with default language
-let currentLanguage = 'en';
+let currentLanguage = i18n.locale || 'en';
+const subscribers = new Set();
+
+const notifyLanguageChange = () => {
+  subscribers.forEach((listener) => {
+    try {
+      listener(currentLanguage);
+    } catch (error) {
+      console.warn('Language listener error:', error);
+    }
+  });
+};
 
 const languageService = {
   // Get current language
@@ -31,16 +49,26 @@ const languageService = {
   // Set language
   setLanguage: (lang) => {
     if (['en', 'hi', 'kn'].includes(lang)) {
+      const hasChanged = currentLanguage !== lang;
       currentLanguage = lang;
-      I18n.locale = lang;
+      i18n.locale = lang;
+      if (hasChanged) {
+        notifyLanguageChange();
+      }
       return true;
     }
     return false;
   },
 
+  // Subscribe to language changes for app-wide re-render
+  subscribe: (listener) => {
+    subscribers.add(listener);
+    return () => subscribers.delete(listener);
+  },
+
   // Get translation
   t: (key, defaultValue = '', options = {}) => {
-    return I18n.t(key, { defaultValue, ...options });
+    return i18n.t(key, { defaultValue, ...options });
   },
 
   // Get all available languages
@@ -52,15 +80,7 @@ const languageService = {
 
   // Initialize language based on device locale
   initializeLanguage: async () => {
-    const deviceLocale = Localization.locale;
-    
-    if (deviceLocale.startsWith('hi')) {
-      languageService.setLanguage('hi');
-    } else if (deviceLocale.startsWith('kn')) {
-      languageService.setLanguage('kn');
-    } else {
-      languageService.setLanguage('en');
-    }
+    languageService.setLanguage(normalizeLocale(getDeviceLocale()));
   },
 };
 
