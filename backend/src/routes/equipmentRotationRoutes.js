@@ -12,6 +12,8 @@ router.use(authenticate);
 router.post('/donor/activate', requireRoles('patient', 'doctor', 'admin'), equipmentRotationController.activateDonor);
 router.post('/listings', requireRoles('patient', 'doctor', 'admin'), equipmentRotationController.createListing);
 router.get('/listings', requireRoles('patient', 'doctor', 'admin'), equipmentRotationController.getListings);
+router.get('/donor/:donorUserId/listings', requireSelfOrRoles('donorUserId', ['admin']), equipmentRotationController.getDonorListings);
+router.delete('/listings/:id', requireRoles('patient', 'doctor', 'admin'), equipmentRotationController.deleteListing);
 router.patch('/listings/:id/moderate', requireRoles('admin'), equipmentRotationController.moderateListing);
 
 router.post('/requests', requireRoles('patient'), equipmentRotationController.createRequest);

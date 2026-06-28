@@ -18,6 +18,7 @@ const equipmentRoutes = require('./routes/equipmentRoutes');
 const equipmentRotationRoutes = require('./routes/equipmentRotationRoutes');
 const simpleRoutes = require('./routes/simpleRoutes');
 const emergencyRoutes = require('./routes/emergencyRoutes');
+const videoRoutes = require('./routes/videoRoutes');
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use('/api/equipment', equipmentRoutes);
 app.use('/api/equipment-rotation', equipmentRotationRoutes);
 app.use('/api/simple', simpleRoutes);
 app.use('/api/emergency', emergencyRoutes);
+app.use('/api/videos', videoRoutes);
 
 // Health check endpoint
 app.get('/', (req, res) => {

@@ -82,11 +82,7 @@ export default function ProfileCreationScreen({ navigation, route }) {
 
   const genderOptions = [t('profile.male'), t('profile.female'), t('profile.other')];
   const bloodTypeOptions = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
-  const languageOptions = [
-    { code: 'en', name: 'English' },
-    { code: 'hi', name: 'हिन्दी' },
-    { code: 'kn', name: 'ಕನ್ನಡ' },
-  ];
+  const languageOptions = languageService.getAvailableLanguages();
 
   const validateForm = () => {
     if (!firstName.trim()) {
@@ -179,7 +175,7 @@ export default function ProfileCreationScreen({ navigation, route }) {
 
           <View style={styles.form}>
             {/* Basic Information */}
-            <Text style={styles.sectionTitle}>Basic Information</Text>
+            <Text style={styles.sectionTitle}>{t('profile.basicInformation')}</Text>
 
             <View style={styles.row}>
               <TextInput
@@ -209,7 +205,7 @@ export default function ProfileCreationScreen({ navigation, route }) {
 
             {/* Health Information */}
             <Text style={[styles.sectionTitle, { marginTop: 24 }]}>
-              Health Information
+              {t('profile.healthInformation')}
             </Text>
 
             <SelectDropdown
@@ -230,7 +226,7 @@ export default function ProfileCreationScreen({ navigation, route }) {
 
             {/* Address Information */}
             <Text style={[styles.sectionTitle, { marginTop: 24 }]}>
-              Address
+              {t('profile.addressInformation')}
             </Text>
 
             <TextInput
@@ -270,7 +266,7 @@ export default function ProfileCreationScreen({ navigation, route }) {
 
             {/* Preferences */}
             <Text style={[styles.sectionTitle, { marginTop: 24 }]}>
-              {t('profile.language')}
+              {t('profile.preferences')}
             </Text>
 
             <View style={styles.languageButtons}>
@@ -314,7 +310,7 @@ export default function ProfileCreationScreen({ navigation, route }) {
               onPress={handleCompleteProfile}
               disabled={loading}
             >
-              <Text style={styles.buttonText}>
+                <Text style={styles.buttonText}>
                 {loading ? t('common.loading') : t('profile.completeProfile')}
               </Text>
             </TouchableOpacity>

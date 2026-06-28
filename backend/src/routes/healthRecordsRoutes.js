@@ -6,6 +6,16 @@ const express = require('express');
 const router = express.Router();
 const healthRecordsController = require('../controllers/healthRecordsController');
 
+// Video library and assignment routes
+router.get('/videos/library', healthRecordsController.listVideoLibrary);
+router.post('/videos/library', healthRecordsController.addVideoToLibrary);
+router.put('/videos/library/:videoId', healthRecordsController.updateVideoInLibrary);
+router.delete('/videos/library/:videoId', healthRecordsController.deleteVideoFromLibrary);
+router.post('/videos/assignments', healthRecordsController.assignVideoToPatient);
+router.put('/videos/assignments/:assignmentId/progress', healthRecordsController.updateAssignedVideoProgress);
+router.get('/doctor/:doctorId/videos', healthRecordsController.getDoctorAssignedVideos);
+router.get('/user/:userId/videos', healthRecordsController.getUserAssignedVideos);
+
 // Prescription routes
 router.post('/prescriptions', healthRecordsController.addPrescription);
 router.get('/prescriptions/:prescriptionId', healthRecordsController.getPrescription);

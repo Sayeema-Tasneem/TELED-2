@@ -228,6 +228,31 @@ const getListings = (filters = {}) => {
 
 const getListingById = (listingId) => equipmentListings.find((item) => item.id === listingId) || null;
 
+const getListingsByDonor = (donorUserId) => {
+  return equipmentListings
+    .filter((item) => item.donorUserId === donorUserId)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+};
+
+const deleteListing = ({ listingId, requesterUserId, requesterRole = 'patient' }) => {
+  const listing = getListingById(listingId);
+  if (!listing) {
+    return { error: 'Listing not found', status: 404 };
+  }
+
+  const isAdmin = requesterRole === 'admin';
+  const isOwner = listing.donorUserId === requesterUserId;
+  if (!isAdmin && !isOwner) {
+    return { error: 'Unauthorized access to requested listing', status: 403 };
+  }
+
+  equipmentListings = equipmentListings.filter((item) => item.id !== listingId);
+  equipmentRequests = equipmentRequests.filter((request) => request.listingId !== listingId);
+  sanitizationLogs = sanitizationLogs.filter((log) => log.listingId !== listingId);
+
+  return { listing };
+};
+
 const moderateListing = ({ listingId, adminDecision, adminNote = '' }) => {
   const listing = getListingById(listingId);
   if (!listing) {
@@ -535,6 +560,8 @@ module.exports = {
   createListing,
   getListings,
   getListingById,
+  getListingsByDonor,
+  deleteListing,
   moderateListing,
   createRequest,
   getRequestsByDoctor,

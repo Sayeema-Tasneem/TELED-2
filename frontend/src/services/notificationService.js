@@ -11,11 +11,19 @@ const MEDICINE_ALARM_CHANNEL_ID = 'medicine-alarm-v2';
 const IN_APP_ALARM_URI =
   'https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg';
 const MEDICINE_ALARM_RING_MS = 10000;
+const MEDICINE_REMINDER_OFFSETS_MINUTES = [0, 10, 20, 30, 40, 50, 60];
+
+const toLocalDateString = (dateValue) => {
+  const date = new Date(dateValue);
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
     shouldShowBanner: true,
     shouldShowList: true,
     shouldPlaySound: true,
@@ -70,7 +78,7 @@ class NotificationService {
       await NotificationService.stopInAppEmergencyTone();
 
       const isVeryLoud = NotificationService.isVeryLoudModeEnabled();
-      const computedDurationMs = MEDICINE_ALARM_RING_MS;
+      const computedDurationMs = durationMs || MEDICINE_ALARM_RING_MS;
 
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
@@ -140,25 +148,31 @@ class NotificationService {
     if (Platform.OS !== 'android') return;
 
     try {
-      await Notifications.deleteNotificationChannelAsync(MEDICINE_ALARM_CHANNEL_ID);
-    } catch (_) {
-      // Safe no-op if channel doesn't exist yet
-    }
+      try {
+        await Notifications.deleteNotificationChannelAsync(MEDICINE_ALARM_CHANNEL_ID);
+      } catch (_) {
+        // Safe no-op if channel doesn't exist yet
+      }
 
-    await Notifications.setNotificationChannelAsync(MEDICINE_ALARM_CHANNEL_ID, {
-      name: 'Medicine Alarm',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 600, 200, 600, 200, 600, 200, 600],
-      lightColor: '#FF0000',
-      sound: 'default',
-      audioAttributes: {
-        usage: Notifications.AndroidAudioUsage.ALARM,
-      },
-      enableVibrate: true,
-      bypassDnd: true,
-      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-      showBadge: true,
-    });
+      await Notifications.setNotificationChannelAsync(MEDICINE_ALARM_CHANNEL_ID, {
+        name: 'Medicine Alarm',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 600, 200, 600, 200, 600, 200, 600],
+        lightColor: '#FF0000',
+        sound: 'default',
+        audioAttributes: {
+          usage: Notifications.AndroidAudioUsage.ALARM,
+        },
+        enableVibrate: true,
+        bypassDnd: true,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        showBadge: true,
+      });
+      console.log('✓ Notification channel configured: Medicine Alarm (MAX importance, bypassDnd enabled)');
+    } catch (error) {
+      console.error('Failed to set notification channel:', error?.message);
+      // Continue anyway - channel might not be available on all devices
+    }
   }
 
   /**
@@ -186,6 +200,19 @@ class NotificationService {
   }
 
   /**
+   * Get current notification permission status. Returns true if granted.
+   */
+  static async getPermissionsStatus() {
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      return String(status) === 'granted';
+    } catch (error) {
+      console.error('Error getting notification permissions status:', error);
+      return false;
+    }
+  }
+
+  /**
    * Schedule a medicine reminder
    * @param {string} medicineId - Medicine ID
    * @param {string} medicineName - Name of medicine
@@ -196,57 +223,130 @@ class NotificationService {
     try {
       await NotificationService.ensureReminderChannel();
 
-      const [hours, minutes] = time.split(':').map(Number);
-
-      let trigger;
-      if (dateString) {
-        const triggerDate = new Date(`${dateString}T${time}:00`);
-        if (Number.isNaN(triggerDate.getTime()) || triggerDate <= new Date()) {
-          return null;
-        }
-        trigger = {
-          type: Notifications.SchedulableTriggerInputTypes.DATE,
-          date: triggerDate,
-          ...(Platform.OS === 'android' ? { channelId: MEDICINE_ALARM_CHANNEL_ID } : {}),
-        };
-      } else {
-        trigger = {
-          type: Notifications.SchedulableTriggerInputTypes.DAILY,
-          hour: hours,
-          minute: minutes,
-          ...(Platform.OS === 'android' ? { channelId: MEDICINE_ALARM_CHANNEL_ID } : {}),
-        };
+      // IMPORTANT: Validate time format HH:MM
+      const timeParts = String(time || '').split(':');
+      if (timeParts.length !== 2) {
+        console.error(`Invalid time format: ${time}. Expected HH:MM`);
+        return [];
       }
 
-      const notification = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: `⏰ ${time} • ${medicineName}`,
-          body: `Please scan ${medicineName} to confirm intake`,
-          data: {
-            medicineId,
-            medicineName,
-            userId,
-            time,
-            dateString,
-            type: 'medicine_reminder',
-            reminderStage: 'primary',
-          },
-          sound: 'default',
-          priority: Notifications.AndroidNotificationPriority.MAX,
-          interruptionLevel: 'timeSensitive',
-        },
-        trigger,
+      const hours = parseInt(timeParts[0], 10);
+      const minutes = parseInt(timeParts[1], 10);
+
+      // Validate parsed values
+      if (
+        Number.isNaN(hours) || Number.isNaN(minutes) ||
+        hours < 0 || hours > 23 ||
+        minutes < 0 || minutes > 59
+      ) {
+        console.error(`Invalid time values: hours=${hours}, minutes=${minutes} from time=${time}`);
+        return [];
+      }
+
+      const scheduledNotifications = [];
+
+      // Ring at the selected time, then every 10 minutes for 1 hour.
+      for (const offset of MEDICINE_REMINDER_OFFSETS_MINUTES) {
+        let trigger;
+        let triggerDate = null; // Declare outside if block for logging
+        
+        if (dateString) {
+          const baseTime = new Date(`${dateString}T${time}:00`);
+          triggerDate = new Date(baseTime.getTime() + offset * 60 * 1000);
+          
+          if (Number.isNaN(triggerDate.getTime())) {
+            console.error(`Invalid date/time combination: ${dateString}T${time}:00`);
+            continue;
+          }
+
+          // If the user saves during the selected minute, fire the primary
+          // reminder immediately instead of silently missing that dose.
+          const now = new Date();
+          if (triggerDate < now) {
+            const ageMs = now.getTime() - triggerDate.getTime();
+            if (offset === 0 && ageMs < 60 * 1000) {
+              triggerDate = new Date(now.getTime() + 1000);
+            } else {
+              console.debug(`Skipping past reminder: ${triggerDate} is before ${now}`);
+              continue;
+            }
+          }
+          
+          trigger = {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: triggerDate,
+          };
+        } else {
+          // FIXED: Don't use DAILY trigger on Expo Go (doesn't work reliably)
+          // This branch shouldn't be called anymore - see scheduleDailyReminders
+          console.warn('WARNING: Daily reminders called with null dateString. This method now uses concrete dates.');
+          continue;
+        }
+
+        // Use stronger title for first reminder, regular for follow-ups
+        const title = offset === 0 
+          ? `💊 Medicine Time: ${medicineName}`
+          : `🔔 Medicine Reminder: ${medicineName}`;
+        
+        const body = offset === 0
+          ? `Time to take ${medicineName} at ${time}. Tap to confirm intake.`
+          : `Reminder: Please confirm intake of ${medicineName}.`;
+
+        try {
+          const notification = await Notifications.scheduleNotificationAsync({
+            content: {
+              title,
+              body,
+              data: {
+                medicineId,
+                medicineName,
+                userId,
+                time,
+                dateString,
+                type: 'medicine_reminder',
+                reminderStage: offset === 0
+                  ? 'primary'
+                  : offset >= 60
+                  ? 'emergency'
+                  : `follow_up_${offset}min`,
+              },
+              sound: 'default',
+              priority: offset === 0 || offset >= 60
+                ? Notifications.AndroidNotificationPriority.MAX
+                : Notifications.AndroidNotificationPriority.HIGH,
+              interruptionLevel: offset === 0 || offset >= 60 ? 'timeSensitive' : 'default',
+              ...(Platform.OS === 'android' ? { channelId: MEDICINE_ALARM_CHANNEL_ID } : {}),
+            },
+            trigger,
+          });
+          const timeStr = triggerDate ? triggerDate.toLocaleString() : 'unknown time';
+          console.log(`✓ Notification scheduled: ${medicineName} ${offset === 0 ? '(primary)' : `(+${offset}min)`} for ${timeStr}`);
+
+          scheduledNotifications.push({ 
+            offset, 
+            stage: offset === 0
+              ? 'primary'
+              : offset >= 60
+              ? 'emergency'
+              : `follow_up_${offset}min`,
+            id: notification 
+          });
+        } catch (notifError) {
+          console.error(`Failed to schedule notification for offset ${offset}:`, notifError);
+        }
+      }
+
+      // Track all notifications
+      scheduledNotifications.forEach(({ offset, stage, id }) => {
+        const key = `${medicineId}_${time}_${dateString || 'repeat'}_${stage}`;
+        NotificationService.scheduleMap.set(key, id);
       });
 
-      // Track notification
-      const key = `${medicineId}_${time}_${dateString || 'repeat'}_primary`;
-      NotificationService.scheduleMap.set(key, notification);
-
-      console.log(`Medicine reminder scheduled: ${medicineName} at ${time}`);
-      return notification;
+      console.log(`✓ Medicine reminder scheduled: ${medicineName} at ${time} on ${dateString || 'daily'} with ${scheduledNotifications.length} notifications`);
+      return scheduledNotifications.map(({ id }) => id);
     } catch (error) {
       console.error('Error scheduling reminder:', error);
-      return null;
+      return [];
     }
   }
 
@@ -266,8 +366,8 @@ class NotificationService {
         }
       }
 
-      // Total alarm rings per dose: 3 (primary + 2 follow-ups)
-      const levels = [2, 4];
+      // Follow-up rings after the primary reminder: every 10 minutes for 1 hour.
+      const levels = [10, 20, 30, 40, 50, 60];
       const ids = [];
       for (let idx = 0; idx < levels.length; idx += 1) {
         const offsetMinutes = levels[idx];
@@ -298,15 +398,17 @@ class NotificationService {
 
         const notificationId = await Notifications.scheduleNotificationAsync({
           content: {
-            title: `🚨 ${time} • ${medicine.name}`,
-            body: `Please scan ${medicine.name} now to confirm intake`,
+            title: offsetMinutes >= 60 ? `🚨 Final medicine alert • ${medicine.name}` : `🚨 ${time} • ${medicine.name}`,
+            body: offsetMinutes >= 60
+              ? `Final reminder: scan ${medicine.name} now or your emergency contact may be notified.`
+              : `Please scan ${medicine.name} now to confirm intake`,
             data: {
               medicineId: medicine.id,
               medicineName: medicine.name,
               time,
               dateString,
               type: 'medicine_reminder',
-              reminderStage: `followup_${idx + 1}`,
+              reminderStage: offsetMinutes >= 60 ? 'emergency' : `follow_up_${offsetMinutes}min`,
             },
             sound: 'default',
             priority: Notifications.AndroidNotificationPriority.MAX,
@@ -315,7 +417,7 @@ class NotificationService {
           trigger,
         });
 
-        const key = `${medicine.id}_${time}_${dateString || 'repeat'}_followup_${idx + 1}`;
+        const key = `${medicine.id}_${time}_${dateString || 'repeat'}_${offsetMinutes >= 60 ? 'emergency' : `follow_up_${offsetMinutes}min`}`;
         NotificationService.scheduleMap.set(key, notificationId);
         ids.push(notificationId);
       }
@@ -329,80 +431,133 @@ class NotificationService {
 
   /**
    * Schedule daily medicine reminders
+   * FIXED: Uses concrete date scheduling (365 days) instead of DAILY triggers
+   * DAILY triggers don't work reliably in Expo Go on Android
    * @param {object} medicine - Medicine object
    */
   static async scheduleDailyReminders(medicine) {
     try {
       const hasPermission = await NotificationService.requestPermissions();
       if (!hasPermission) {
-        console.warn('Notification permission not granted. Skipping reminder scheduling.');
+        console.warn('❌ Notification permission not granted. Reminders will not work.');
+        return [];
+      }
+
+      if (!medicine?.times || !Array.isArray(medicine.times) || medicine.times.length === 0) {
+        console.warn('❌ No reminder times configured for medicine:', medicine?.name);
         return [];
       }
 
       const reminders = [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayString = toLocalDateString(today);
 
-      // Schedule notification for each time the medicine should be taken
-      if (medicine.times && Array.isArray(medicine.times)) {
-        const today = new Date();
-        const todayString = today.toISOString().split('T')[0];
-        const startDate = medicine.startDate && medicine.startDate > todayString
-          ? medicine.startDate
-          : todayString;
+      // Determine start date
+      let startDate = medicine.startDate;
+      if (!startDate || startDate < todayString) {
+        startDate = todayString;
+      }
 
-        let endDate = medicine.endDate || null;
-        if (!endDate && medicine.durationDays) {
-          const start = new Date(`${medicine.startDate || todayString}T00:00:00`);
-          start.setDate(start.getDate() + Number(medicine.durationDays) - 1);
-          endDate = start.toISOString().split('T')[0];
-        }
+      // Determine end date
+      let endDate = medicine.endDate;
+      if (!endDate && medicine.durationDays) {
+        const end = new Date(`${startDate}T00:00:00`);
+        end.setDate(end.getDate() + Number(medicine.durationDays) - 1);
+        endDate = toLocalDateString(end);
+      }
 
-        if (endDate) {
-          const start = new Date(`${startDate}T00:00:00`);
-          const end = new Date(`${endDate}T00:00:00`);
-          const totalDays = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
-          const safeDays = Math.min(Math.max(totalDays, 0), 365);
+      // FIXED: Use 365 days lookahead instead of 30 days
+      // This ensures reminders work for a full year
+      const lookaheadDays = endDate ? Math.floor((new Date(`${endDate}T00:00:00`) - today) / (1000 * 60 * 60 * 24)) + 1 : 365;
+      const safeDays = Math.min(Math.max(lookaheadDays, 0), 365);
 
-          for (let offset = 0; offset < safeDays; offset += 1) {
-            const d = new Date(start);
-            d.setDate(d.getDate() + offset);
-            const dateString = d.toISOString().split('T')[0];
+      console.log(`📅 Scheduling medicine "${medicine.name}" for ${safeDays} days starting ${startDate}`);
 
-            for (const time of medicine.times) {
-              const notificationId = await NotificationService.scheduleMedicineReminder(
-                medicine.id,
-                medicine.name,
-                time,
-                dateString,
-                medicine.userId || null
-              );
-              if (notificationId) {
-                reminders.push(notificationId);
-                const escalationIds = await NotificationService.scheduleEscalationReminders(medicine, time, dateString);
-                reminders.push(...escalationIds);
-              }
-            }
+      // FIXED: Schedule concrete dates instead of using DAILY trigger
+      const start = new Date(`${startDate}T00:00:00`);
+
+      for (let dayOffset = 0; dayOffset < safeDays; dayOffset += 1) {
+        const d = new Date(start);
+        d.setDate(d.getDate() + dayOffset);
+        const dateString = toLocalDateString(d);
+
+        for (const time of medicine.times) {
+          // Skip if medicine was already taken for this date/time
+          if (dateString === todayString && medicine.intakeHistory?.[dateString]?.[time]) {
+            console.log(`⏭️  Skipping already taken: ${medicine.name} ${dateString} ${time}`);
+            continue;
           }
-        } else {
-          for (const time of medicine.times) {
-            const notificationId = await NotificationService.scheduleMedicineReminder(
+
+          console.log(`⏰ Scheduling reminder: ${medicine.name} at ${time} on ${dateString}`);
+          
+          try {
+            const notificationIds = await NotificationService.scheduleMedicineReminder(
               medicine.id,
               medicine.name,
               time,
-                null,
-                medicine.userId || null
+              dateString,
+              medicine.userId || null
             );
-            if (notificationId) {
-              reminders.push(notificationId);
-              const escalationIds = await NotificationService.scheduleEscalationReminders(medicine, time, null);
-              reminders.push(...escalationIds);
+
+            if (Array.isArray(notificationIds) && notificationIds.length > 0) {
+              reminders.push(...notificationIds);
+            } else {
+              console.warn(`⚠️  Failed to schedule reminder for ${medicine.name} at ${time}`);
             }
+          } catch (err) {
+            console.error(`❌ Error scheduling ${medicine.name} at ${time}:`, err.message);
           }
         }
       }
 
+      console.log(`✅ Scheduled ${reminders.length} reminders for "${medicine.name}"`);
       return reminders;
     } catch (error) {
-      console.error('Error scheduling daily reminders:', error);
+      console.error('❌ Error scheduling daily reminders:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Rebuild reminders for a single medicine.
+   * Cancels existing notifications first so the result stays idempotent.
+   */
+  static async syncMedicineReminders(medicine) {
+    try {
+      if (!medicine?.id || !Array.isArray(medicine?.times) || medicine.times.length === 0) {
+        return [];
+      }
+
+      const status = String(medicine.status || '').toLowerCase();
+      const isPausedOrInactive = ['paused', 'inactive', 'cancelled'].includes(status);
+      if (isPausedOrInactive) {
+        return [];
+      }
+
+      await NotificationService.cancelAllReminders(medicine);
+      return await NotificationService.scheduleDailyReminders(medicine);
+    } catch (error) {
+      console.error('Error syncing medicine reminders:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Rebuild reminders for a list of medicines.
+   */
+  static async syncMedicineReminderList(medicines = []) {
+    try {
+      const results = [];
+      for (const medicine of Array.isArray(medicines) ? medicines : []) {
+        const reminderIds = await NotificationService.syncMedicineReminders(medicine);
+        if (Array.isArray(reminderIds) && reminderIds.length > 0) {
+          results.push(...reminderIds);
+        }
+      }
+      return results;
+    } catch (error) {
+      console.error('Error syncing medicine reminder list:', error);
       return [];
     }
   }
@@ -484,22 +639,6 @@ class NotificationService {
     try {
       await NotificationService.ensureReminderChannel();
 
-      const isMedicineAlarmTest =
-        String(data?.type || '').toLowerCase() === 'medicine_alarm_test';
-
-      if (isMedicineAlarmTest) {
-        NotificationService.playInAppEmergencyTone().catch(() => {});
-      }
-
-      const trigger =
-        Platform.OS === 'android' && isMedicineAlarmTest
-          ? {
-              type: Notifications.SchedulableTriggerInputTypes.DATE,
-              date: new Date(Date.now() + 1200),
-              channelId: MEDICINE_ALARM_CHANNEL_ID,
-            }
-          : null;
-
       const notification = await Notifications.scheduleNotificationAsync({
         content: {
           title,
@@ -513,7 +652,7 @@ class NotificationService {
           priority: Notifications.AndroidNotificationPriority.MAX,
           interruptionLevel: 'timeSensitive',
         },
-        trigger,
+        trigger: null,
       });
 
       return notification;
@@ -822,6 +961,199 @@ class NotificationService {
     } catch (error) {
       console.error('Error scheduling appointment notifications:', error);
       return [];
+    }
+  }
+
+  /**
+   * DIAGNOSTIC: Check if notifications are properly scheduled
+   * Use this to verify that medicine reminders are actually scheduled
+   */
+  static async verifyScheduledNotifications() {
+    try {
+      console.log('\n========== NOTIFICATION DIAGNOSTIC ==========');
+      
+      // Check permissions
+      const permStatus = await NotificationService.getPermissionsStatus();
+      console.log(`✓ Notification Permission: ${permStatus ? '✅ GRANTED' : '❌ DENIED'}`);
+      
+      if (!permStatus) {
+        console.warn('⚠️  Notifications are disabled! Users will not receive reminders.');
+        return { permissionGranted: false };
+      }
+
+      // Get all scheduled
+      const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+      console.log(`✓ Total Scheduled Notifications: ${scheduled.length}`);
+
+      if (scheduled.length === 0) {
+        console.warn('⚠️  NO NOTIFICATIONS SCHEDULED! Check if reminders are being added.');
+        return { scheduled: 0, medicineReminders: 0 };
+      }
+
+      // Count medicine reminders
+      const medicineReminders = scheduled.filter(n => 
+        n.content?.data?.type === 'medicine_reminder'
+      );
+      console.log(`✓ Medicine Reminders: ${medicineReminders.length}`);
+
+      // Show next 5 reminders
+      console.log('\n📋 Next 5 Scheduled Reminders:');
+      scheduled
+        .sort((a, b) => {
+          const aDate = new Date(a.trigger?.date || a.trigger?.dateString || 0);
+          const bDate = new Date(b.trigger?.date || b.trigger?.dateString || 0);
+          return aDate - bDate;
+        })
+        .slice(0, 5)
+        .forEach((notif, idx) => {
+          const triggerDate = notif.trigger?.date || new Date();
+          console.log(`  ${idx + 1}. [${triggerDate.toLocaleString()}] ${notif.content?.title}`);
+          if (notif.content?.data?.medicineId) {
+            console.log(`     Medicine: ${notif.content?.data?.medicineName || 'Unknown'}`);
+          }
+        });
+
+      console.log('\n✅ Notifications appear to be properly scheduled');
+      console.log('==========================================\n');
+
+      return {
+        permissionGranted: true,
+        totalScheduled: scheduled.length,
+        medicineReminders: medicineReminders.length,
+      };
+    } catch (error) {
+      console.error('❌ Error verifying notifications:', error);
+      return { error: error.message };
+    }
+  }
+
+  /**
+   * DIAGNOSTIC: Test notification - shows a test notification immediately
+   */
+  static async sendTestNotification() {
+    try {
+      console.log('📤 Sending test notification...');
+      const testNotif = await NotificationService.sendInstantNotification(
+        '🧪 Test Notification',
+        'If you see this, notifications are working! 🎉',
+        {
+          type: 'test',
+          timestamp: new Date().toISOString(),
+        }
+      );
+
+      if (testNotif) {
+        console.log('✅ Test notification sent successfully');
+        return true;
+      } else {
+        console.warn('⚠️  Test notification returned null');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Error sending test notification:', error);
+      return false;
+    }
+  }
+
+  /**
+   * DIAGNOSTIC: Full system check for notification issues
+   */
+  static async runFullNotificationDiagnostics() {
+    console.log('\n🔍 === FULL NOTIFICATION DIAGNOSTICS ===\n');
+    
+    try {
+      // 1. Check permission
+      const permission = await NotificationService.getPermissionsStatus();
+      console.log(`1️⃣  Notification Permission: ${permission ? '✅ GRANTED' : '❌ DENIED'}`);
+      if (!permission) {
+        console.warn('   ⚠️  ACTION: Go to Settings > Apps > Your App > Permissions > Notifications and enable');
+      }
+
+      // 2. Check scheduled notifications
+      const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+      console.log(`2️⃣  Scheduled Notifications: ${scheduled.length} total`);
+      if (scheduled.length > 0) {
+        const medicineReminders = scheduled.filter(n => n.content?.data?.type === 'medicine_reminder');
+        console.log(`   📊 Medicine Reminders: ${medicineReminders.length}`);
+        
+        // Show next 3
+        const next3 = scheduled
+          .sort((a, b) => new Date(a.trigger?.date || 0) - new Date(b.trigger?.date || 0))
+          .slice(0, 3);
+        
+        console.log('   📋 Next 3 reminders:');
+        next3.forEach((n, i) => {
+          const date = n.trigger?.date ? new Date(n.trigger.date).toLocaleString() : 'Unknown';
+          console.log(`      ${i + 1}. ${date} - ${n.content?.title || 'No title'}`);
+        });
+      } else {
+        console.warn('   ⚠️  No notifications scheduled! Check if medicines are saved.');
+      }
+
+      // 3. Check if app is in background (notifications will display)
+      // In foreground, need to handle manually
+      console.log(`3️⃣  Platform: ${Platform.OS} (${Platform.OS === 'android' ? 'Android' : 'iOS'})`);
+
+      // 4. Check audio settings (on Android)
+      if (Platform.OS === 'android') {
+        try {
+          const audioMode = await Audio.getAudioModeAsync();
+          console.log(`4️⃣  Audio Mode: ${audioMode.playsInSilentModeIOS ? 'Plays in silent mode' : 'Respects silent mode'}`);
+          console.log(`    Audio staysActive: ${audioMode.staysActiveInBackground ? 'Yes' : 'No'}`);
+        } catch (e) {
+          console.log('4️⃣  Audio Mode: Could not check');
+        }
+      }
+
+      // 5. Recommendations
+      console.log('\n💡 Troubleshooting Tips:');
+      if (permission) {
+        console.log('   ✅ Permissions OK');
+      } else {
+        console.log('   ❌ Grant notification permission first');
+      }
+      
+      if (scheduled.length > 100) {
+        console.log('   ✅ Good - many notifications scheduled');
+      } else if (scheduled.length > 0) {
+        console.log('   ⚠️  Few notifications - add more medicines');
+      } else {
+        console.log('   ❌ No notifications - add a medicine first');
+      }
+      
+      console.log('\n4️⃣  Additional checks:');
+      console.log('   • Check Do Not Disturb: Should be OFF for reminders');
+      console.log('   • Check Battery Saver: Disable for notifications');
+      console.log('   • Check Volume: Should be ON (not muted)');
+      console.log('   • Check Ringer Mode: Should be normal or vibrate');
+      console.log('   • Restart app: Sometimes helps');
+      console.log('   • Test notification: Use sendTestNotification()');
+      
+      console.log('\n=================================\n');
+      
+      return {
+        permissionGranted: permission,
+        notificationCount: scheduled.length,
+        platform: Platform.OS,
+      };
+    } catch (error) {
+      console.error('❌ Diagnostic error:', error?.message);
+      return { error: error?.message };
+    }
+  }
+
+  /**
+   * DIAGNOSTIC: Test if notification sound plays
+   */
+  static async testNotificationSound() {
+    console.log('🔊 Testing notification sound...');
+    try {
+      await NotificationService.playInAppEmergencyTone(5000); // 5 second test
+      console.log('✅ Sound playing for 5 seconds...');
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to play test sound:', error?.message);
+      return false;
     }
   }
 }

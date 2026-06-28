@@ -12,6 +12,32 @@ import languageService from '../services/languageService';
 
 const t = (key, defaultValue = '') => languageService.t(key, defaultValue);
 
+const parseAppointmentDateTime = (appointment) => {
+  const dateValue = appointment?.appointmentDate || appointment?.date;
+  const timeValue = appointment?.appointmentTime || appointment?.time || '09:00 AM';
+  if (!dateValue) return null;
+
+  const [datePart] = String(dateValue).split('T');
+  const [time, modifier = 'AM'] = String(timeValue).split(' ');
+  const [hourString = '9', minuteString = '00'] = String(time || '09:00').split(':');
+
+  let hours = Number(hourString);
+  const minutes = Number(minuteString || 0);
+  if (modifier.toUpperCase() === 'PM' && hours < 12) hours += 12;
+  if (modifier.toUpperCase() === 'AM' && hours === 12) hours = 0;
+
+  const date = new Date(`${datePart}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setHours(hours, minutes, 0, 0);
+  return date;
+};
+
+const isPastAppointment = (appointment) => {
+  const dt = parseAppointmentDateTime(appointment);
+  if (!dt) return false;
+  return dt.getTime() < Date.now();
+};
+
 export default function AppointmentDetailsScreen({ route, navigation }) {
   const { appointment } = route.params;
 
@@ -152,7 +178,7 @@ export default function AppointmentDetailsScreen({ route, navigation }) {
         </View>
 
         {/* Action Buttons */}
-        {appointment.status === 'confirmed' && (
+        {appointment.status === 'confirmed' && !isPastAppointment(appointment) && (
           <View style={styles.actionSection}>
             <TouchableOpacity
               style={[styles.actionButton, styles.rescheduleButton]}

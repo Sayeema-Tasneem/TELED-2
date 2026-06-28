@@ -3,6 +3,7 @@ import {
   Alert,
   ActivityIndicator,
   BackHandler,
+  AppState,
   Linking,
   Modal,
   Platform,
@@ -45,6 +46,7 @@ import MedicalEquipmentScreen from '../screens/MedicalEquipmentScreen';
 import EquipmentHubScreen from '../screens/EquipmentHubScreen';
 import EmergencyHelpScreen from '../screens/EmergencyHelpScreen';
 import EmergencyAnimationListScreen from '../screens/EmergencyAnimationListScreen';
+import AdminVideoUploadScreen from '../screens/AdminVideoUploadScreen';
 
 const Stack = createNativeStackNavigator();
 const navigationRef = createNavigationContainerRef();
@@ -751,7 +753,7 @@ function PatientLoginScreen({ navigation }) {
       Alert.alert(message || t('invalidCredentials'));
     }
   };
-
+      
   return (
     <AppShell>
       <Text style={styles.title}>{t('patientAuthTitle')}</Text>
@@ -1713,477 +1715,69 @@ function DoctorDashboardScreen({ navigation, route }) {
   const { t } = useI18n();
   const doctor = route.params?.doctor;
 
-  const [activeTab, setActiveTab] = useState('home');
-  const [doctorAppointments, setDoctorAppointments] = useState([]);
-  const [loadingDoctorAppointments, setLoadingDoctorAppointments] = useState(false);
-  const [selectedAppointmentId, setSelectedAppointmentId] = useState(null);
-
-  const refreshAppointments = useCallback(async () => {
-    if (!doctor?.name) {
-      setDoctorAppointments([]);
-      return;
-    }
-
-    try {
-      setLoadingDoctorAppointments(true);
-      const result = await simpleApiService.getAppointments({ doctorName: doctor.name });
-      setDoctorAppointments(Array.isArray(result?.appointments) ? result.appointments : []);
-    } catch (error) {
-      setDoctorAppointments([]);
-    } finally {
-      setLoadingDoctorAppointments(false);
-    }
-  }, [doctor?.name]);
-
-  useEffect(() => {
-    refreshAppointments();
-    const unsubscribe = navigation.addListener('focus', refreshAppointments);
-    return unsubscribe;
-  }, [navigation, refreshAppointments]);
-
-  const now = Date.now();
-  const todayDate = new Date().toISOString().split('T')[0];
-
-  const activeAppointments = doctorAppointments.filter(
-    (appointment) => String(appointment?.status || 'scheduled').toLowerCase() !== 'cancelled'
-  );
-
-  const todayAppointments = activeAppointments.filter(
-    (appointment) => String(appointment?.appointmentDate || appointment?.date || '') === todayDate
-  );
-
-  const upcomingAppointments = activeAppointments
-    .map((appointment) => ({
-      appointment,
-      time: parseAppointmentDateTime(appointment)?.getTime() || null,
-    }))
-    .filter((item) => item.time && item.time >= now)
-    .sort((left, right) => left.time - right.time);
-
-  const nextAppointment = upcomingAppointments[0] || null;
-  const nextPatientMinutes = nextAppointment
-    ? Math.max(1, Math.round((nextAppointment.time - now) / (1000 * 60)))
-    : null;
-
-  const notificationsCount = upcomingAppointments.filter(
-    (item) => item.time <= now + (60 * 60 * 1000)
-  ).length;
-
-  const appointmentListForDoctor = upcomingAppointments.length > 0
-    ? upcomingAppointments.map((item) => item.appointment)
-    : todayAppointments;
-
-  const selectedAppointment = appointmentListForDoctor.find((item) => item.id === selectedAppointmentId)
-    || appointmentListForDoctor[0]
-    || null;
-
-  useEffect(() => {
-    if (appointmentListForDoctor.length === 0) {
-      setSelectedAppointmentId(null);
-      return;
-    }
-
-    if (!selectedAppointmentId || !appointmentListForDoctor.some((item) => item.id === selectedAppointmentId)) {
-      setSelectedAppointmentId(appointmentListForDoctor[0].id);
-    }
-  }, [appointmentListForDoctor, selectedAppointmentId]);
-
-  const todayStats = [
-    { label: 'Today appointments', value: String(todayAppointments.length), icon: 'calendar', color: '#2563EB' },
-    { label: 'Next patient', value: nextPatientMinutes ? `${nextPatientMinutes} min` : '--', icon: 'person', color: '#0EA5E9' },
-    { label: 'Notifications', value: String(notificationsCount), icon: 'notifications', color: '#F59E0B' },
+  const quickActions = [
+    {
+      title: 'View Appointments',
+      subtitle: 'Check patient bookings and follow-ups',
+      onPress: () => navigation.navigate('DoctorAppointments', { doctor }),
+    },
+    {
+      title: 'Upload Prescription',
+      subtitle: 'Create or update a prescription',
+      onPress: () => navigation.navigate('UploadPrescription', { doctor }),
+    },
+    {
+      title: 'Back to role select',
+      subtitle: 'Switch back to the login screen',
+      onPress: () => navigation.replace('RoleSelect'),
+    },
   ];
 
-  const selectedPatientDetails = selectedAppointment ? {
-    name: selectedAppointment.patientName || 'Patient',
-    phone: selectedAppointment.patientPhone || '-',
-    appointmentDate: selectedAppointment.appointmentDate || selectedAppointment.date || '-',
-    appointmentTime: selectedAppointment.appointmentTime || '--',
-    reason: selectedAppointment.reason || 'Consultation',
-    symptoms: selectedAppointment.symptoms || 'No symptoms shared yet',
-    status: selectedAppointment.status || 'scheduled',
-    appointmentDay: selectedAppointment.appointmentDay || '',
-  } : null;
+  return (
+    <AppShell>
+      <Text style={styles.title}>{t('doctorDashboard')}</Text>
+      <Text style={styles.subtitle}>{`${t('welcome')}, ${doctor?.name || 'Doctor'}`}</Text>
 
-  const tabs = [
-    { key: 'home', label: 'Home', icon: '🏠' },
-    { key: 'appointments', label: 'Appts', icon: '📅' },
-    { key: 'consult', label: 'Call', icon: '🎥' },
-    { key: 'schedule', label: 'Slots', icon: '🗓️' },
-    { key: 'profile', label: 'Profile', icon: '👤' },
-  ];
-
-  const SectionTitle = ({ title, subtitle }) => (
-    <View style={styles.dashboardSectionHeader}>
-      <Text style={styles.dashboardSectionTitle}>{title}</Text>
-      {subtitle ? <Text style={styles.dashboardSectionSubtitle}>{subtitle}</Text> : null}
-    </View>
-  );
-
-  const ActionButton = ({ title, icon, backgroundColor = '#2563EB', textColor = '#fff', onPress, disabled = false }) => (
-    <TouchableOpacity
-      style={[styles.actionButton, { backgroundColor }, disabled && styles.actionButtonDisabled]}
-      onPress={onPress}
-      activeOpacity={0.85}
-      disabled={disabled}
-    >
-      <Text style={styles.actionIcon}>{icon}</Text>
-      <Text style={[styles.actionButtonText, { color: textColor }]}>{title}</Text>
-    </TouchableOpacity>
-  );
-
-  const handleAcceptAppointment = (appointment) => {
-    navigation.navigate('UploadPrescription', {
-      doctor,
-      patientPhone: appointment?.patientPhone || '',
-      patientName: appointment?.patientName || '',
-      appointmentId: appointment?.id,
-      appointmentDate: appointment?.appointmentDate || appointment?.date || '',
-      appointmentTime: appointment?.appointmentTime || '',
-    });
-  };
-
-  const handleOpenVideoCall = (appointment = null) => {
-    const target = appointment || selectedAppointment;
-    if (!target?.id) {
-      Alert.alert('No appointment selected', 'Please select a patient booking first.');
-      return;
-    }
-
-    if (isVideoJoinExpired(target)) {
-      Alert.alert('Consultation closed', 'Join consultation is disabled 20 minutes after appointment time.');
-      return;
-    }
-
-    navigation.navigate('VideoCall', {
-      doctor,
-      focusAppointmentId: target.id,
-      appointment: target,
-    });
-  };
-
-  const handleRejectAppointment = async (appointment) => {
-    try {
-      await simpleApiService.updateAppointment(appointment.id, { status: 'cancelled' });
-      await refreshAppointments();
-      Alert.alert('Appointment rejected', `${appointment?.patientName || 'Patient'} booking has been cancelled.`);
-    } catch (error) {
-      Alert.alert('Failed to reject appointment', error?.message || 'Please try again.');
-    }
-  };
-
-  const handleRescheduleAppointment = async (appointment) => {
-    try {
-      await simpleApiService.updateAppointment(appointment.id, { status: 'reschedule_requested' });
-      await refreshAppointments();
-      Alert.alert('Reschedule requested', `${appointment?.patientName || 'Patient'} booking is marked for reschedule.`);
-    } catch (error) {
-      Alert.alert('Failed to reschedule appointment', error?.message || 'Please try again.');
-    }
-  };
-
-  const handleDeleteAppointment = async (appointment) => {
-    Alert.alert(
-      'Delete appointment',
-      `Delete consultation with ${appointment?.patientName || 'Patient'} scheduled for ${appointment?.appointmentDate || appointment?.date}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await simpleApiService.deleteAppointment(appointment.id);
-              await refreshAppointments();
-              Alert.alert('Appointment deleted', 'The consultation has been removed.');
-            } catch (error) {
-              Alert.alert('Failed to delete appointment', error?.message || 'Please try again.');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const renderHome = () => (
-    <>
-      <View style={styles.doctorHeroCard}>
-        <View style={styles.doctorHeroTopRow}>
-          <View style={styles.doctorHeroAvatar}>
-            <Text style={styles.doctorHeroAvatarText}>{(doctor?.name || 'D').slice(0, 1).toUpperCase()}</Text>
-          </View>
-          <View style={styles.doctorHeroTextWrap}>
-            <Text style={styles.welcomeLabel}>Good morning</Text>
-            <Text style={styles.welcomeName}>{doctor?.name || 'Doctor'}</Text>
-            <Text style={styles.welcomeSubtext}>{doctor?.specialization || 'General Physician'} • Consultation fee ₹300</Text>
-          </View>
-        </View>
-
-        <View style={styles.doctorHeroPillsRow}>
-          <View style={styles.doctorHeroPill}><Text style={styles.doctorHeroPillText}>{todayAppointments.length} today</Text></View>
-          <View style={styles.doctorHeroPill}><Text style={styles.doctorHeroPillText}>{appointmentListForDoctor.length} queued</Text></View>
-          <View style={styles.doctorHeroPill}><Text style={styles.doctorHeroPillText}>{notificationsCount} alerts</Text></View>
-        </View>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Doctor profile</Text>
+        <Text style={styles.cardText}>{doctor?.name || 'Doctor'}</Text>
+        <Text style={styles.smallText}>{doctor?.specialization || 'General Physician'}</Text>
+        <Text style={styles.smallText}>Use the actions below to manage appointments and prescriptions.</Text>
       </View>
 
-      <View style={styles.welcomeCard}>
-        <Text style={styles.welcomeLabel}>Next up</Text>
-        <Text style={styles.welcomeName}>{selectedAppointment ? selectedAppointment.patientName || 'Patient' : 'No appointment yet'}</Text>
-        <Text style={styles.welcomeSubtext}>
-          {selectedAppointment
-            ? `${selectedAppointment.appointmentDate || selectedAppointment.date || '--'} • ${selectedAppointment.appointmentTime || '--'}`
-            : 'Bookings from patients will appear here'}
-        </Text>
-      </View>
-
-      <View style={styles.statsGrid}>
-        {todayStats.map((item) => (
-          <View key={item.label} style={styles.statCard}>
-            <View style={[styles.statIcon, { backgroundColor: item.color }]}>
-              <Text style={styles.statIconText}>{item.icon === 'cash' ? '₹' : item.icon === 'person' ? '👤' : item.icon === 'notifications' ? '🔔' : '📅'}</Text>
-            </View>
-            <Text style={styles.statValue}>{item.value}</Text>
-            <Text style={styles.statLabel}>{item.label}</Text>
-          </View>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Quick actions</Text>
+        {quickActions.map((item) => (
+          <TouchableOpacity
+            key={item.title}
+            style={styles.inlineActionButton}
+            onPress={item.onPress}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.inlineActionButtonText}>{item.title}</Text>
+          </TouchableOpacity>
         ))}
       </View>
 
-      <SectionTitle title="Quick actions" subtitle="One-handed access" />
-      <View style={styles.quickActionsRow}>
-        <ActionButton title="Appointments" icon="📋" onPress={() => setActiveTab('appointments')} />
-        <ActionButton title="Consult" icon="🎥" onPress={() => setActiveTab('consult')} />
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Today</Text>
+        <Text style={styles.cardText}>Appointments and consultation tasks will appear here.</Text>
+        <Text style={styles.smallText}>Open Appointments to review patient bookings, then upload the prescription.</Text>
       </View>
-      <View style={styles.quickActionsRow}>
-        <ActionButton title="Schedule" icon="🗓️" backgroundColor="#0EA5E9" onPress={() => setActiveTab('schedule')} />
-        <ActionButton title="Profile" icon="👤" backgroundColor="#16A34A" onPress={() => setActiveTab('profile')} />
-      </View>
-      <View style={styles.quickActionsRow}>
-        <ActionButton
-          title="Equipment Hub"
-          icon="EH"
-          backgroundColor="#7C3AED"
-          onPress={() => navigation.navigate('EquipmentHub', { doctor, userId: doctor?.id || doctor?.name })}
-        />
-      </View>
-    </>
-  );
-
-  const renderAppointments = () => (
-    <>
-      <SectionTitle title="Booked appointments" subtitle="Upcoming bookings from patients" />
-      {loadingDoctorAppointments ? (
-        <Text style={styles.emptyText}>Loading appointments...</Text>
-      ) : appointmentListForDoctor.length === 0 ? (
-        <Text style={styles.emptyText}>No booked appointments</Text>
-      ) : appointmentListForDoctor.map((item) => (
-        <View
-          key={item.id}
-          style={[styles.bookingCard, selectedAppointmentId === item.id && styles.bookingCardSelected]}
-        >
-          <View style={styles.bookingRowTop}>
-            <TouchableOpacity
-              style={styles.bookingInfo}
-              activeOpacity={0.85}
-              onPress={() => setSelectedAppointmentId(item.id)}
-            >
-              <Text style={styles.bookingName}>{item.patientName || 'Patient'}</Text>
-              <Text style={styles.bookingMeta}>
-                {(item.appointmentDate || item.date || '--')} {item.appointmentTime || '--'} • {item.reason || 'Consultation'}
-              </Text>
-            </TouchableOpacity>
-            <Text style={styles.bookingBadge}>{item.status || 'Scheduled'}</Text>
-          </View>
-          <Text style={styles.bookingSmallLine}>Phone: {item.patientPhone || '-'}</Text>
-
-          <TouchableOpacity
-            style={styles.selectAppointmentButton}
-            activeOpacity={0.85}
-            onPress={() => setSelectedAppointmentId(item.id)}
-          >
-            <Text style={styles.selectAppointmentButtonText}>
-              {selectedAppointmentId === item.id ? 'Selected' : 'Select patient'}
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.bookingActions}>
-            <ActionButton title="Accept" icon="✓" backgroundColor="#16A34A" onPress={() => handleAcceptAppointment(item)} />
-            <ActionButton title="Reject" icon="✕" backgroundColor="#DC2626" onPress={() => handleRejectAppointment(item)} />
-            <ActionButton title="Treatment Done" icon="✅" backgroundColor="#10B981" onPress={() => handleDeleteAppointment(item)} />
-          </View>
-          <TouchableOpacity
-            style={[styles.joinButton, isVideoJoinExpired(item) && styles.joinButtonDisabled]}
-            onPress={() => handleOpenVideoCall(item)}
-            disabled={isVideoJoinExpired(item)}
-          >
-            <Text style={styles.joinButtonText}>Join consultation</Text>
-          </TouchableOpacity>
-        </View>
-      ))}
-    </>
-  );
-
-  const renderConsultation = () => (
-    <>
-      <SectionTitle title="Consultation" subtitle="Video, prescription" />
-      <View style={styles.consultCard}>
-        {selectedPatientDetails ? (
-          <>
-            <Text style={styles.doctorDashboardPatientName}>{selectedPatientDetails.name}</Text>
-            <Text style={styles.doctorDashboardPatientMeta}>{selectedPatientDetails.appointmentDate} • {selectedPatientDetails.appointmentTime}</Text>
-            <Text style={styles.patientLine}><Text style={styles.patientLineLabel}>Phone:</Text> {selectedPatientDetails.phone}</Text>
-            <Text style={styles.patientLine}><Text style={styles.patientLineLabel}>Reason:</Text> {selectedPatientDetails.reason}</Text>
-            <Text style={styles.patientLine}><Text style={styles.patientLineLabel}>Symptoms:</Text> {selectedPatientDetails.symptoms}</Text>
-          </>
-        ) : (
-          <View style={styles.emptyConsultWrap}>
-            <Text style={styles.emptyConsultTitle}>No patient selected</Text>
-            <Text style={styles.emptyConsultText}>Pick a booking from Appointments to see patient details here.</Text>
-          </View>
-        )}
-
-        <View style={styles.reportBox}>
-          <Text style={styles.reportTitle}>Consultation workflow</Text>
-          <Text style={styles.reportItem}>• Open the selected booking</Text>
-          <Text style={styles.reportItem}>• Accept to write prescription</Text>
-          <Text style={styles.reportItem}>• Upload medicines, tests, scans</Text>
-        </View>
-
-        <View style={styles.quickActionsRow}>
-          <ActionButton
-            title="Video call"
-            icon="🎥"
-            onPress={() => handleOpenVideoCall(selectedAppointment)}
-            disabled={!selectedAppointment || isVideoJoinExpired(selectedAppointment)}
-          />
-        </View>
-        <View style={styles.quickActionsRow}>
-          <ActionButton
-            title="Prescription"
-            icon="📝"
-            backgroundColor="#7C3AED"
-            onPress={() => selectedAppointment ? handleAcceptAppointment(selectedAppointment) : setActiveTab('profile')}
-          />
-        </View>
-        <TouchableOpacity style={styles.endConsultButton} onPress={() => setActiveTab('appointments')}>
-          <Text style={styles.endConsultText}>End consultation</Text>
-        </TouchableOpacity>
-      </View>
-    </>
-  );
-
-  const renderSchedule = () => (
-    <>
-      <SectionTitle title="Schedule" subtitle="Set availability and slots" />
-      <View style={styles.scheduleCard}>
-        <ActionButton title="Set availability" icon="🟢" onPress={() => setActiveTab('appointments')} />
-        <ActionButton title="Morning slots" icon="🌤️" backgroundColor="#0EA5E9" onPress={() => setActiveTab('appointments')} />
-        <ActionButton title="Evening slots" icon="🌙" backgroundColor="#1D4ED8" onPress={() => setActiveTab('appointments')} />
-        <ActionButton title="Mark unavailable days" icon="⛔" backgroundColor="#DC2626" onPress={() => setActiveTab('appointments')} />
-      </View>
-    </>
-  );
-
-  const renderProfile = () => (
-    <>
-      <SectionTitle title="Profile" subtitle="Doctor details and consultation fee" />
-      <View style={styles.profileCard}>
-        <Text style={styles.profileName}>{doctor?.name || 'Dr. Name'}</Text>
-        <Text style={styles.profileSpecialty}>{doctor?.specialization || 'Specialization'}</Text>
-        <Text style={styles.profileDetail}>Consultation fee: ₹300</Text>
-        <Text style={styles.profileDetail}>Clinic: Main Street, Block A</Text>
-        <TouchableOpacity style={styles.editProfileButton} onPress={() => {}}>
-          <Text style={styles.editProfileText}>Edit profile</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.prescriptionCard}>
-        <Text style={styles.prescriptionTitle}>Prescription</Text>
-        <Text style={styles.prescriptionLine}>• Add medicines with dosage and timing</Text>
-        <Text style={styles.prescriptionLine}>• Generate simple prescription</Text>
-        <TouchableOpacity style={styles.generateButton} onPress={() => navigation.navigate('UploadPrescription', { doctor })}>
-          <Text style={styles.generateButtonText}>Generate prescription</Text>
-        </TouchableOpacity>
-      </View>
-    </>
-  );
-
-  return (
-    <SafeAreaView style={styles.dashboardContainer}>
-      <View style={styles.dashboardHeader} />
-
-      <View style={styles.dashboardHeaderTextWrap}>
-        <Text style={styles.dashboardTitle} numberOfLines={1}>{t('doctorDashboard')}</Text>
-        <Text style={styles.dashboardSubtitle} numberOfLines={1}>{`${t('welcome')}, ${doctor?.name || ''}`}</Text>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.dashboardScrollContent}>
-        {activeTab === 'home' && renderHome()}
-        {activeTab === 'appointments' && renderAppointments()}
-        {activeTab === 'consult' && renderConsultation()}
-        {activeTab === 'schedule' && renderSchedule()}
-        {activeTab === 'profile' && renderProfile()}
-
-        <TouchableOpacity style={styles.dashboardBackButton} onPress={() => setActiveTab('home')} activeOpacity={0.85}>
-          <Text style={styles.dashboardBackButtonText}>← Back</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.logoutButton} onPress={() => navigation.replace('RoleSelect')}>
-          <Text style={styles.logoutButtonText}>{t('logout')}</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      <View style={styles.bottomTabs}>
-        {tabs.map((tab) => {
-          const active = activeTab === tab.key;
-          return (
-            <TouchableOpacity key={tab.key} style={styles.bottomTab} onPress={() => setActiveTab(tab.key)}>
-              <View style={[styles.bottomTabIcon, active && styles.bottomTabIconActive]}>
-                <Text style={styles.bottomTabIconText}>{tab.icon}</Text>
-              </View>
-              <Text style={[styles.bottomTabText, active && styles.bottomTabTextActive]} numberOfLines={1}>{tab.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-      </SafeAreaView>
+    </AppShell>
   );
 }
 
 function DoctorAppointmentsScreen({ navigation, route }) {
   const { t } = useI18n();
   const doctor = route.params?.doctor;
-  const [appointments, setAppointments] = useState([]);
-
-  React.useEffect(() => {
-    const load = async () => {
-      try {
-        const result = await simpleApiService.getAppointments(doctor?.name);
-        setAppointments(result.appointments || []);
-      } catch (error) {
-        setAppointments([]);
-      }
-    };
-
-    const unsubscribe = navigation.addListener('focus', load);
-    return unsubscribe;
-  }, [navigation, doctor?.name]);
 
   return (
     <AppShell>
       <Text style={styles.title}>{t('patientAppointments')}</Text>
-      {appointments.length === 0 ? (
-        <Text style={styles.emptyText}>{t('noAppointments')}</Text>
-      ) : (
-        appointments.map((item) => (
-          <View key={item.id} style={styles.card}>
-            <Text style={styles.cardTitle}>{item.patientName}</Text>
-            <Text style={styles.cardText}>{item.patientPhone}</Text>
-            <Text style={styles.cardText}>{item.date}</Text>
-            <Text style={styles.smallText}>{item.reason}</Text>
-          </View>
-        ))
-      )}
-
+      <Text style={styles.emptyText}>
+        {doctor?.name ? `${doctor.name} appointments can be opened from the dashboard.` : t('noAppointments')}
+      </Text>
       <BigButton title={t('back')} variant="secondary" onPress={() => navigation.navigate('DoctorDashboard', { doctor })} />
     </AppShell>
   );
@@ -2712,6 +2306,7 @@ function AdminDashboardScreen({ navigation }) {
       <BigButton title={t('viewPatients')} onPress={() => navigation.navigate('AdminPatients')} />
       <BigButton title={t('viewAppointments')} onPress={() => navigation.navigate('AdminAppointments')} />
       <BigButton title="Equipment Hub" onPress={() => navigation.navigate('EquipmentHub', { admin: { userId: 'admin', name: 'Platform Admin' } })} />
+      <BigButton title="📹 Treatment Videos" onPress={() => navigation.navigate('AdminVideoUpload', { token: 'admin_token' })} />
       <BigButton title={t('logout')} variant="secondary" onPress={() => navigation.replace('RoleSelect')} />
     </AppShell>
   );
@@ -3230,6 +2825,7 @@ export default function SimpleTelemedicineApp() {
   const lastDoctorRef = useRef(null);
   const lastRoleRef = useRef(null);
   const escalatedReminderKeysRef = useRef(new Set());
+  const pendingMedicineReminderRef = useRef(null);
 
   const setLanguage = (lang) => {
     setLanguageState(lang);
@@ -3262,8 +2858,11 @@ export default function SimpleTelemedicineApp() {
     const getReminderEscalationLevel = (reminderStage) => {
       const stage = String(reminderStage || '').toLowerCase();
       if (stage === 'primary') return 0;
+      if (stage === 'emergency') return 6;
       const match = stage.match(/^followup_(\d+)$/);
-      return match ? Number(match[1]) : 0;
+      if (match) return Number(match[1]);
+      const minuteMatch = stage.match(/^follow_up_(\d+)min$/);
+      return minuteMatch ? Math.floor(Number(minuteMatch[1]) / 10) : 0;
     };
 
     const maybeNotifyEmergencyAfterFinalReminder = async (data) => {
@@ -3272,8 +2871,8 @@ export default function SimpleTelemedicineApp() {
         if (type !== 'medicine_reminder') return;
 
         const escalationLevel = getReminderEscalationLevel(data?.reminderStage);
-        // 3rd reminder event = primary(0) + followup_1(1) + followup_2(2)
-        if (escalationLevel < 2) return;
+        // Emergency action is only allowed on the final reminder stage.
+        if (escalationLevel < 6) return;
 
         const medicineId = String(data?.medicineId || '').trim();
         const medicineName = String(data?.medicineName || 'Medicine').trim();
@@ -3318,18 +2917,33 @@ export default function SimpleTelemedicineApp() {
       }
     };
 
+    const navigateToMedicineReminderScan = (data) => {
+      if (String(data?.type || '').toLowerCase() !== 'medicine_reminder' || !data?.medicineId) {
+        return false;
+      }
+
+      const payload = {
+        pendingScanMedicineId: String(data.medicineId),
+        pendingScanUserId: data.userId || null,
+        pendingScanTime: data.time || null,
+        pendingScanNonce: Date.now(),
+      };
+
+      if (!navigationRef.isReady()) {
+        pendingMedicineReminderRef.current = payload;
+        return false;
+      }
+
+      pendingMedicineReminderRef.current = null;
+      navigationRef.navigate('MedicineReminder', payload);
+      return true;
+    };
+
     // When user taps a medicine alarm notification, navigate straight to scan screen
     const handleMedicineReminderTap = (data) => {
       NotificationService.stopInAppEmergencyTone().catch(() => {});
 
-      if (data.type === 'medicine_reminder' && data.medicineId && navigationRef.isReady()) {
-        navigationRef.navigate('MedicineReminder', {
-          pendingScanMedicineId: String(data.medicineId),
-          pendingScanUserId: data.userId || null,
-          pendingScanTime: data.time || null,
-          pendingScanNonce: Date.now(),
-        });
-      }
+      navigateToMedicineReminderScan(data);
     };
 
     const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
@@ -3337,6 +2951,15 @@ export default function SimpleTelemedicineApp() {
       if (String(data?.type || '').toLowerCase() === 'medicine_reminder') {
         NotificationService.playInAppEmergencyTone(10000).catch(() => {});
         maybeNotifyEmergencyAfterFinalReminder(data).catch(() => {});
+
+        Alert.alert(
+          '💊 Medicine reminder',
+          `It\'s time to scan ${data?.medicineName || 'your medicine'}${data?.time ? ` at ${data.time}` : ''}.`,
+          [
+            { text: 'Later', style: 'cancel' },
+            { text: 'Scan now', onPress: () => handleMedicineReminderTap(data) },
+          ]
+        );
       }
     });
 
@@ -3358,20 +2981,31 @@ export default function SimpleTelemedicineApp() {
 
     // Safety check: if reminder notifications are already visible when app becomes active,
     // evaluate them for missed final escalation as well.
-    Notifications.getPresentedNotificationsAsync()
-      .then((presented) => {
-        (Array.isArray(presented) ? presented : []).forEach((item) => {
-          const data = item?.request?.content?.data || {};
-          if (String(data?.type || '').toLowerCase() === 'medicine_reminder') {
-            maybeNotifyEmergencyAfterFinalReminder(data).catch(() => {});
-          }
-        });
-      })
-      .catch(() => {});
+    const checkPresentedMedicineReminders = () => {
+      Notifications.getPresentedNotificationsAsync()
+        .then((presented) => {
+          (Array.isArray(presented) ? presented : []).forEach((item) => {
+            const data = item?.request?.content?.data || {};
+            if (String(data?.type || '').toLowerCase() === 'medicine_reminder') {
+              maybeNotifyEmergencyAfterFinalReminder(data).catch(() => {});
+            }
+          });
+        })
+        .catch(() => {});
+    };
+
+    checkPresentedMedicineReminders();
+
+    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        checkPresentedMedicineReminders();
+      }
+    });
 
     return () => {
       receivedSub.remove();
       responseSub.remove();
+      appStateSubscription.remove();
       NotificationService.stopInAppEmergencyTone().catch(() => {});
     };
   }, []);
@@ -3474,6 +3108,13 @@ export default function SimpleTelemedicineApp() {
       <LanguageContext.Provider value={value}>
         <NavigationContainer 
           ref={navigationRef}
+          onReady={() => {
+            if (pendingMedicineReminderRef.current) {
+              const pending = pendingMedicineReminderRef.current;
+              pendingMedicineReminderRef.current = null;
+              navigationRef.navigate('MedicineReminder', pending);
+            }
+          }}
           onStateChange={(state) => {
             const activeRoute = state?.routes?.[state?.index];
             const routeName = activeRoute?.name;
@@ -3541,6 +3182,7 @@ export default function SimpleTelemedicineApp() {
               <Stack.Screen name="AdminDoctorTimeSlots" component={AdminDoctorTimeSlotsScreen} />
               <Stack.Screen name="AdminSymptomCoverage" component={AdminSymptomCoverageScreen} />
               <Stack.Screen name="AdminPharmacies" component={AdminPharmaciesScreen} />
+              <Stack.Screen name="AdminVideoUpload" component={AdminVideoUploadScreen} />
               <Stack.Screen name="AdminPatients" component={AdminPatientsScreen} />
               <Stack.Screen name="AdminAppointments" component={AdminAppointmentsScreen} />
             </Stack.Navigator>

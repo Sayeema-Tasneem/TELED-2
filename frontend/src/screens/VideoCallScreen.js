@@ -164,6 +164,7 @@ const getJoinAvailability = (appointment) => {
     return {
       canJoin: false,
       message: 'Appointment time is not available yet.',
+      state: 'missing',
     };
   }
 
@@ -175,6 +176,7 @@ const getJoinAvailability = (appointment) => {
     return {
       canJoin: false,
       message: `Video call will be enabled 15 minutes before the appointment. Available from ${joinStart.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}.`,
+      state: 'future',
     };
   }
 
@@ -182,12 +184,14 @@ const getJoinAvailability = (appointment) => {
     return {
       canJoin: false,
       message: 'Join consultation is disabled 20 minutes after appointment time.',
+      state: 'past',
     };
   }
 
   return {
     canJoin: true,
     message: 'Your video call is ready to join.',
+    state: 'joinable',
   };
 };
 
@@ -272,6 +276,7 @@ export default function VideoCallScreen({ route, navigation }) {
   }, [appointments, routeAppointment]);
 
   const selectedAppointment = useMemo(() => {
+    const now = Date.now();
     if (focusAppointmentId) {
       const focused = upcomingAppointments.find((appointment) => appointment.id === focusAppointmentId);
       if (focused) {
@@ -279,16 +284,56 @@ export default function VideoCallScreen({ route, navigation }) {
       }
     }
 
-    const now = Date.now();
     const nextUpcoming = upcomingAppointments.find((appointment) => {
       const appointmentDate = parseAppointmentDateTime(appointment);
-      return appointmentDate ? appointmentDate.getTime() >= now - 60 * 60 * 1000 : false;
+      return appointmentDate ? appointmentDate.getTime() >= now : false;
     });
 
-    return nextUpcoming || upcomingAppointments[0] || null;
+    if (nextUpcoming) {
+      return nextUpcoming;
+    }
+
+    const lastPast = [...upcomingAppointments].reverse().find((appointment) => {
+      const appointmentDate = parseAppointmentDateTime(appointment);
+      return appointmentDate ? appointmentDate.getTime() < now : false;
+    });
+
+    return lastPast || null;
   }, [focusAppointmentId, upcomingAppointments]);
 
   const joinAvailability = useMemo(() => getJoinAvailability(selectedAppointment), [selectedAppointment]);
+
+  const appointmentViewState = useMemo(() => {
+    if (!selectedAppointment) {
+      return {
+        state: 'missing',
+        title: 'No appointment scheduled',
+        subtitle: 'Book a consultation first. It will appear here with date, day, time, and the video button.',
+      };
+    }
+
+    if (joinAvailability.state === 'past') {
+      return {
+        state: 'past',
+        title: 'Past appointment',
+        subtitle: 'This appointment time has already passed.',
+      };
+    }
+
+    if (joinAvailability.state === 'future') {
+      return {
+        state: 'future',
+        title: 'Upcoming appointment',
+        subtitle: joinAvailability.message,
+      };
+    }
+
+    return {
+      state: 'joinable',
+      title: 'Your appointment is ready',
+      subtitle: joinAvailability.message,
+    };
+  }, [joinAvailability.message, joinAvailability.state, selectedAppointment]);
 
   const meetingId = selectedAppointment ? getAppointmentRoomName(selectedAppointment) : '-';
   const meetingPassword = selectedAppointment ? getAppointmentMeetingPassword(selectedAppointment) : '-';
@@ -450,7 +495,7 @@ export default function VideoCallScreen({ route, navigation }) {
 
         <View style={styles.centerContainer}>
           <MaterialCommunityIcons name="calendar-blank-outline" size={72} color="#a5b5cc" />
-          <Text style={styles.emptyTitle}>No scheduled appointment</Text>
+          <Text style={styles.emptyTitle}>No appointment scheduled</Text>
           <Text style={styles.infoText}>Book a consultation first. It will appear here with date, day, time, and the video button.</Text>
         </View>
 
@@ -472,8 +517,8 @@ export default function VideoCallScreen({ route, navigation }) {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.heroCard}>
           <MaterialCommunityIcons name="video-outline" size={40} color="#1157c2" />
-          <Text style={styles.heroTitle}>Your appointment is booked</Text>
-          <Text style={styles.heroSubtitle}>{joinAvailability.message}</Text>
+          <Text style={styles.heroTitle}>{appointmentViewState.title}</Text>
+          <Text style={styles.heroSubtitle}>{appointmentViewState.subtitle}</Text>
         </View>
 
         <View style={styles.card}>
@@ -513,24 +558,33 @@ export default function VideoCallScreen({ route, navigation }) {
           </View>
         </View>
 
-        <TouchableOpacity style={[styles.joinButton, !joinAvailability.canJoin && styles.joinButtonDisabled]} disabled={!joinAvailability.canJoin} onPress={handleJoinCall}>
-          <MaterialCommunityIcons name="video" size={22} color="#fff" />
-          <Text style={styles.joinButtonText}>Join Video Call</Text>
-        </TouchableOpacity>
+        {appointmentViewState.state !== 'past' ? (
+          <TouchableOpacity style={[styles.joinButton, !joinAvailability.canJoin && styles.joinButtonDisabled]} disabled={!joinAvailability.canJoin} onPress={handleJoinCall}>
+            <MaterialCommunityIcons name="video" size={22} color="#fff" />
+            <Text style={styles.joinButtonText}>Join Video Call</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.pastNoticeCard}>
+            <MaterialCommunityIcons name="calendar-remove-outline" size={22} color="#7a4b00" />
+            <Text style={styles.pastNoticeText}>This was a past appointment. You can no longer join this consultation.</Text>
+          </View>
+        )}
 
         <TouchableOpacity style={styles.footerBackButton} onPress={navigateBackToDashboard} activeOpacity={0.85}>
           <Text style={styles.footerBackButtonText}>← Back</Text>
         </TouchableOpacity>
 
         <View style={styles.manageRow}>
-          <TouchableOpacity
-            style={[styles.secondaryActionButton, managingAppointment && styles.secondaryActionButtonDisabled]}
-            disabled={managingAppointment}
-            onPress={toggleReschedule}
-          >
-            <MaterialCommunityIcons name="calendar-edit" size={20} color="#1157c2" />
-            <Text style={styles.secondaryActionText}>{rescheduleOpen ? 'Close Reschedule' : 'Reschedule'}</Text>
-          </TouchableOpacity>
+          {appointmentViewState.state !== 'past' && (
+            <TouchableOpacity
+              style={[styles.secondaryActionButton, managingAppointment && styles.secondaryActionButtonDisabled]}
+              disabled={managingAppointment}
+              onPress={toggleReschedule}
+            >
+              <MaterialCommunityIcons name="calendar-edit" size={20} color="#1157c2" />
+              <Text style={styles.secondaryActionText}>{rescheduleOpen ? 'Close Reschedule' : 'Reschedule'}</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={[styles.deleteButton, managingAppointment && styles.secondaryActionButtonDisabled]}
@@ -769,6 +823,25 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '800',
     fontSize: 17,
+  },
+  pastNoticeCard: {
+    backgroundColor: '#fff7e8',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#f0c36a',
+    paddingVertical: 16,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  pastNoticeText: {
+    flex: 1,
+    color: '#7a4b00',
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 22,
   },
   manageRow: {
     flexDirection: 'row',

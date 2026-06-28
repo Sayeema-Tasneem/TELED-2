@@ -121,6 +121,16 @@ class EquipmentRotationService {
     });
   }
 
+  static async getDonorListings(donorUserId) {
+    return request(`/donor/${encodeURIComponent(donorUserId)}/listings`);
+  }
+
+  static async deleteListing(listingId) {
+    return request(`/listings/${listingId}`, {
+      method: 'DELETE',
+    });
+  }
+
   static async createRequest(payload) {
     return request('/requests', {
       method: 'POST',

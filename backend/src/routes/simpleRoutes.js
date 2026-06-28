@@ -7,6 +7,8 @@ const {
   activateDonor,
   createListing,
   getListings,
+  getListingsByDonor,
+  deleteListing,
   moderateListing,
   createRequest,
   getRequestsByDoctor,
@@ -351,6 +353,42 @@ router.post('/equipment-rotation/listings', requireSimpleEquipmentRoles('patient
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message || 'Failed to create equipment listing' });
+  }
+});
+
+router.get('/equipment-rotation/donor/:donorUserId/listings', requireSimpleEquipmentRoles('patient', 'doctor', 'admin'), async (req, res) => {
+  try {
+    const actor = req.simpleEquipmentActor;
+    const authError = assertSimpleSelfOrAdmin(actor, req.params.donorUserId, 'User');
+    if (authError && actor.role !== 'doctor') {
+      return res.status(403).json({ success: false, message: authError });
+    }
+
+    const listings = getListingsByDonor(req.params.donorUserId);
+    return res.status(200).json({ success: true, count: listings.length, listings });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message || 'Failed to load donor listings' });
+  }
+});
+
+router.delete('/equipment-rotation/listings/:id', requireSimpleEquipmentRoles('patient', 'doctor', 'admin'), async (req, res) => {
+  try {
+    const actor = req.simpleEquipmentActor;
+    const result = deleteListing({
+      listingId: req.params.id,
+      requesterUserId: actor.userId || actor.phone,
+      requesterRole: actor.role,
+    });
+
+    if (result?.listing?.donorUserId) {
+      recalculateDonorImpact(result.listing.donorUserId);
+    }
+
+    return handleEquipmentResult(res, result, 200, {
+      message: 'Equipment listing deleted successfully',
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message || 'Failed to delete equipment listing' });
   }
 });
 

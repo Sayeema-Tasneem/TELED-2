@@ -67,7 +67,15 @@ const languageService = {
   },
 
   // Get translation
+  // Supports two common call styles:
+  //  - t(key, 'default string', { count: 1 })
+  //  - t(key, { count: 1 })
   t: (key, defaultValue = '', options = {}) => {
+    // If caller passed an object as the second argument, treat it as options (interpolation, pluralization, etc.)
+    if (defaultValue && typeof defaultValue === 'object' && !Array.isArray(defaultValue)) {
+      return i18n.t(key, { ...defaultValue, ...options });
+    }
+
     return i18n.t(key, { defaultValue, ...options });
   },
 

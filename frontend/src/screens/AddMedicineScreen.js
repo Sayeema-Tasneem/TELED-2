@@ -268,6 +268,7 @@ export default function AddMedicineScreen({ navigation, route }) {
 
       const medicineData = {
         name: medicineName.trim(),
+        status: 'active',
         tabletsPerDose: doseNumber,
         dosage: `${doseNumber} tablet${doseNumber > 1 ? 's' : ''}`,
         timesPerDay: uniqueTimes.length,

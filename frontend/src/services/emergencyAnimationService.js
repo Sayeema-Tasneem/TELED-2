@@ -10,8 +10,8 @@ const EMERGENCY_ANIMATIONS = {
     title: 'CPR - Cardiopulmonary Resuscitation',
     description: 'Life-saving technique for cardiac arrest',
     severity: 'CRITICAL',
-    // YouTube search for an authoritative Hands-Only CPR video (American Heart Association / Red Cross)
-    videoUrl: 'https://www.youtube.com/results?search_query=american+heart+association+hands+only+cpr',
+    // Direct YouTube watch URL for authoritative CPR guidance
+    videoUrl: 'https://www.youtube.com/watch?v=BQNNOh8c8ks',
     duration: 180,
     steps: [
       'Check if person is responsive',
@@ -41,8 +41,8 @@ const EMERGENCY_ANIMATIONS = {
     title: 'Heimlich Maneuver - Choking Relief',
     description: 'Emergency procedure to remove airway blockage',
     severity: 'CRITICAL',
-    // YouTube search for an authoritative choking relief video (St John Ambulance)
-    videoUrl: 'https://www.youtube.com/results?search_query=st+john+ambulance+how+to+save+a+choking+adult',
+    // Direct YouTube watch URL (St John Ambulance)
+    videoUrl: 'https://www.youtube.com/watch?v=HGBBu4zr8sM',
     duration: 120,
     steps: [
       'Ask person to cough if they can',
@@ -71,8 +71,8 @@ const EMERGENCY_ANIMATIONS = {
     id: 'severe-bleeding',
     title: 'Severe Bleeding Control - Tourniquet Application',
     description: 'Stop life-threatening bleeding from limbs',
-    // YouTube search for an authoritative severe bleeding / tourniquet video (NHS / Stop the Bleed)
-    videoUrl: 'https://www.youtube.com/results?search_query=nhs+severe+bleeding+tourniquet',
+    // Direct YouTube watch URL (St John Ambulance)
+    videoUrl: 'https://www.youtube.com/watch?v=NxO5LvgqZe0',
     duration: 240,
     steps: [
       'Call 108 immediately',
@@ -106,8 +106,8 @@ const EMERGENCY_ANIMATIONS = {
     title: 'Burns - Immediate First Aid',
     description: 'Proper treatment for thermal burns',
       severity: 'HIGH',
-    // YouTube search for an authoritative burns first aid video (NHS)
-    videoUrl: 'https://www.youtube.com/results?search_query=nhs+first+aid+for+burns',
+    // Direct YouTube watch URL (St John Ambulance)
+    videoUrl: 'https://www.youtube.com/watch?v=TLr2qsEhpC8',
     duration: 150,
     steps: [
       'Move away from heat source',
@@ -140,8 +140,8 @@ const EMERGENCY_ANIMATIONS = {
     title: 'Snake Bite - Emergency Response',
     description: 'First aid for snake bite victims',
       severity: 'CRITICAL',
-    // YouTube search for an authoritative snakebite first aid video (WHO)
-    videoUrl: 'https://www.youtube.com/results?search_query=who+snakebite+first+aid',
+    // Direct YouTube watch URL (St John Ambulance / regional)
+    videoUrl: 'https://www.youtube.com/watch?v=lLkw4BXa7pQ',
     duration: 180,
     steps: [
       'Move away from snake to safety',
@@ -175,8 +175,8 @@ const EMERGENCY_ANIMATIONS = {
     title: 'Shock - Emergency Response',
     description: 'Stabilize someone in medical shock',
       severity: 'CRITICAL',
-    // YouTube search for an authoritative shock treatment video (St John Ambulance)
-    videoUrl: 'https://www.youtube.com/results?search_query=st+john+ambulance+recognising+and+treating+shock',
+    // Direct YouTube watch URL (general shock treatment guidance)
+    videoUrl: 'https://www.youtube.com/watch?v=61urGQrmeNM',
     duration: 120,
     steps: [
       'Call 108 immediately',
@@ -209,8 +209,8 @@ const EMERGENCY_ANIMATIONS = {
     title: 'Heart Attack - Emergency Response',
     description: 'First aid during suspected heart attack',
       severity: 'CRITICAL',
-    // YouTube search for an authoritative heart attack first aid video (American Heart Association)
-    videoUrl: 'https://www.youtube.com/results?search_query=american+heart+association+what+to+do+for+heart+attack',
+    // Direct YouTube watch URL (St John Ambulance)
+    videoUrl: 'https://www.youtube.com/watch?v=gDwt7dD3awc',
     duration: 150,
     steps: [
       'Call 108 immediately',
@@ -243,8 +243,8 @@ const EMERGENCY_ANIMATIONS = {
     title: 'Drowning - Water Rescue & Revival',
     description: 'Emergency response for water emergencies',
       severity: 'CRITICAL',
-    // YouTube search for an authoritative drowning response video (St John Ambulance / Royal Life Saving)
-    videoUrl: 'https://www.youtube.com/results?search_query=st+john+ambulance+drowning+how+to+respond',
+    // Direct YouTube watch URL (St John Ambulance)
+    videoUrl: 'https://www.youtube.com/watch?v=v1YrU55ACbE',
     duration: 180,
     steps: [
       'Call 108 immediately',
@@ -277,8 +277,8 @@ const EMERGENCY_ANIMATIONS = {
     title: 'Poisoning - Emergency Response',
     description: 'First aid for chemical or substance poisoning',
       severity: 'CRITICAL',
-    // YouTube search for an authoritative poisoning first aid video (NHS)
-    videoUrl: 'https://www.youtube.com/results?search_query=nhs+poisoning+first+aid',
+    // Direct YouTube watch URL (St John Ambulance)
+    videoUrl: 'https://www.youtube.com/watch?v=b2ieb8BZJuY',
     duration: 120,
     steps: [
       'Call 108 and poison helpline immediately',
@@ -311,8 +311,8 @@ const EMERGENCY_ANIMATIONS = {
     title: 'Fracture - Immobilization & Care',
     description: 'Proper handling of bone fractures',
       severity: 'HIGH',
-    // YouTube search for an authoritative fracture immobilization video (St John Ambulance)
-    videoUrl: 'https://www.youtube.com/results?search_query=st+john+ambulance+how+to+immobilise+a+fracture',
+    // Direct YouTube watch URL (St John Ambulance)
+    videoUrl: 'https://www.youtube.com/watch?v=2v8vlXgGXwE',
     duration: 150,
     steps: [
       'Stop any bleeding with pressure',

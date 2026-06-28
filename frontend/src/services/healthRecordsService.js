@@ -5,6 +5,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 
 const normalizeBaseUrl = (url) => {
@@ -38,6 +39,8 @@ const resolveBackendBaseUrl = () => {
 
 const BASE_URL = `${resolveBackendBaseUrl()}/api/health-records`;
 const PRESCRIPTION_CACHE_KEY = 'healthRecords:prescriptions';
+const ASSIGNED_VIDEOS_CACHE_KEY = 'healthRecords:assignedVideos';
+const VIDEO_DOWNLOAD_DIRECTORY = `${FileSystem.documentDirectory}care-videos/`;
 
 const safeParseJSON = (value, fallback) => {
   try {
@@ -53,10 +56,22 @@ const getCachedPrescriptions = async () => {
   return safeParseJSON(raw, []);
 };
 
+const getCachedAssignedVideos = async () => {
+  const raw = await AsyncStorage.getItem(ASSIGNED_VIDEOS_CACHE_KEY);
+  return safeParseJSON(raw, []);
+};
+
 const setCachedPrescriptions = async (prescriptions) => {
   await AsyncStorage.setItem(
     PRESCRIPTION_CACHE_KEY,
     JSON.stringify(Array.isArray(prescriptions) ? prescriptions : [])
+  );
+};
+
+const setCachedAssignedVideos = async (assignments) => {
+  await AsyncStorage.setItem(
+    ASSIGNED_VIDEOS_CACHE_KEY,
+    JSON.stringify(Array.isArray(assignments) ? assignments : [])
   );
 };
 
@@ -79,6 +94,45 @@ const removeCachedPrescription = async (prescriptionId) => {
   const existing = await getCachedPrescriptions();
   const filtered = existing.filter((item) => item.id !== prescriptionId);
   await setCachedPrescriptions(filtered);
+};
+
+const ensureVideoDownloadDirectory = async () => {
+  const info = await FileSystem.getInfoAsync(VIDEO_DOWNLOAD_DIRECTORY);
+  if (!info.exists) {
+    await FileSystem.makeDirectoryAsync(VIDEO_DOWNLOAD_DIRECTORY, {
+      intermediates: true,
+    });
+  }
+  return VIDEO_DOWNLOAD_DIRECTORY;
+};
+
+const sanitizeFilename = (value) => String(value || 'care-video')
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-+|-+$/g, '') || 'care-video';
+
+const buildVideoFilename = (assignment) => {
+  const base = assignment?.id || assignment?.videoId || assignment?.title || 'care-video';
+  return `${sanitizeFilename(base)}.mp4`;
+};
+
+const resolveVideoDownloadUrl = (assignment) => {
+  const candidates = [
+    assignment?.downloadUrl,
+    assignment?.videoUrl,
+    assignment?.youtubeEmbedUrl,
+  ].filter(Boolean);
+
+  const directUrl = candidates.find(
+    (url) => !String(url).includes('youtube.com') && !String(url).includes('youtu.be')
+  );
+
+  return directUrl || null;
+};
+
+const getLocalVideoPath = async (assignment) => {
+  await ensureVideoDownloadDirectory();
+  return `${VIDEO_DOWNLOAD_DIRECTORY}${buildVideoFilename(assignment)}`;
 };
 
 class HealthRecordsService {
@@ -418,6 +472,228 @@ class HealthRecordsService {
       console.error('Error searching health records:', error);
       throw error;
     }
+  }
+
+  /**
+   * Video Library APIs
+   */
+  static async getVideoLibrary(filters = {}) {
+    try {
+      const params = new URLSearchParams();
+      if (filters.category) params.append('category', filters.category);
+      if (filters.tag) params.append('tag', filters.tag);
+      if (filters.condition) params.append('condition', filters.condition);
+      if (filters.q) params.append('q', filters.q);
+
+      const queryString = params.toString();
+      const endpoint = `${BASE_URL}/videos/library${queryString ? `?${queryString}` : ''}`;
+      const response = await fetch(endpoint);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to load video library');
+      return data.videos || [];
+    } catch (error) {
+      console.error('Error getting video library:', error);
+      throw error;
+    }
+  }
+
+  static async addVideoToLibrary(videoData) {
+    try {
+      const response = await fetch(`${BASE_URL}/videos/library`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(videoData),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to add video to library');
+      return data.video;
+    } catch (error) {
+      console.error('Error adding video to library:', error);
+      throw error;
+    }
+  }
+
+  static async updateVideoInLibrary(videoId, updateData) {
+    try {
+      const response = await fetch(`${BASE_URL}/videos/library/${videoId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to update video in library');
+      return data.video;
+    } catch (error) {
+      console.error('Error updating video in library:', error);
+      throw error;
+    }
+  }
+
+  static async deleteVideoFromLibrary(videoId) {
+    try {
+      const response = await fetch(`${BASE_URL}/videos/library/${videoId}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to delete video from library');
+      return data.video;
+    } catch (error) {
+      console.error('Error deleting video from library:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Doctor assigns videos; patient consumes in My Videos
+   */
+  static async assignVideoToPatient(assignmentData) {
+    try {
+      const response = await fetch(`${BASE_URL}/videos/assignments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(assignmentData),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to assign video to patient');
+      return data.assignment;
+    } catch (error) {
+      console.error('Error assigning video to patient:', error);
+      throw error;
+    }
+  }
+
+  static async getUserAssignedVideos(userId, { status } = {}) {
+    try {
+      const params = new URLSearchParams();
+      if (status) params.append('status', status);
+      const queryString = params.toString();
+
+      const response = await fetch(
+        `${BASE_URL}/user/${userId}/videos${queryString ? `?${queryString}` : ''}`
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to get assigned videos');
+
+      const assignments = data.assignments || [];
+      await setCachedAssignedVideos(assignments);
+      return assignments;
+    } catch (error) {
+      console.error('Error getting user assigned videos:', error);
+
+      const cached = await getCachedAssignedVideos();
+      if (cached.length > 0) {
+        return cached;
+      }
+
+      throw error;
+    }
+  }
+
+  static async updateAssignedVideoProgress(assignmentId, progressData) {
+    try {
+      const response = await fetch(`${BASE_URL}/videos/assignments/${assignmentId}/progress`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(progressData),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to update video progress');
+
+      const updated = data.assignment;
+      const cached = await getCachedAssignedVideos();
+      const next = cached.map((item) => (item.id === updated.id ? updated : item));
+      await setCachedAssignedVideos(next);
+
+      return updated;
+    } catch (error) {
+      console.error('Error updating assigned video progress:', error);
+      throw error;
+    }
+  }
+
+  static async getDoctorAssignedVideos(doctorId, filters = {}) {
+    try {
+      const params = new URLSearchParams();
+      if (filters.userId) params.append('userId', filters.userId);
+      if (filters.status) params.append('status', filters.status);
+
+      const queryString = params.toString();
+      const response = await fetch(
+        `${BASE_URL}/doctor/${doctorId}/videos${queryString ? `?${queryString}` : ''}`
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to get doctor video dashboard');
+
+      return {
+        assignments: data.assignments || [],
+        summary: data.summary || { completedCount: 0, averageWatchPercentage: 0 },
+      };
+    } catch (error) {
+      console.error('Error getting doctor assigned videos:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Offline download helpers (for self-hosted direct video URLs)
+   */
+  static async getLocalAssignedVideos() {
+    try {
+      return await getCachedAssignedVideos();
+    } catch (error) {
+      console.error('Error getting local assigned videos:', error);
+      return [];
+    }
+  }
+
+  static async saveLocalAssignedVideos(assignments = []) {
+    try {
+      await setCachedAssignedVideos(assignments);
+      return true;
+    } catch (error) {
+      console.error('Error saving local assigned videos:', error);
+      return false;
+    }
+  }
+
+  static async downloadAssignedVideo(assignment) {
+    try {
+      const directUrl = resolveVideoDownloadUrl(assignment);
+      if (!directUrl) {
+        throw new Error('Offline download not available for this video source');
+      }
+
+      const destination = await getLocalVideoPath(assignment);
+      const info = await FileSystem.getInfoAsync(destination);
+      if (info.exists) {
+        return destination;
+      }
+
+      const result = await FileSystem.downloadAsync(directUrl, destination);
+      return result.uri;
+    } catch (error) {
+      console.error('Error downloading assigned video:', error);
+      throw error;
+    }
+  }
+
+  static async resolveAssignedVideoPlaybackUri(assignment) {
+    try {
+      const localPath = await getLocalVideoPath(assignment);
+      const info = await FileSystem.getInfoAsync(localPath);
+      if (info.exists) {
+        return localPath;
+      }
+    } catch (error) {
+      console.warn('Error checking local assigned video path:', error?.message || error);
+    }
+
+    return assignment?.youtubeEmbedUrl || assignment?.videoUrl || null;
   }
 }
 

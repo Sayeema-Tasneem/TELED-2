@@ -135,11 +135,9 @@ export const createVoiceConsultationRequest = (voiceText, language = 'en') => {
     symptoms,
     specialty,
     voiceDescription: voiceText,
-    detectionDetails: {
-      language,
-      timestamp: new Date(),
-      confidence: 0.8 + Math.random() * 0.2, // Simulated confidence
-    },
+    // Removed test-only simulated detection details (confidence randomness)
+    language,
+    timestamp: new Date(),
   };
 };
 

@@ -1,6 +1,16 @@
 {
   "patients": [
     {
+      "id": "p_1781692762578_bwiavb",
+      "name": "Sumaiya ",
+      "phone": "8618970278",
+      "age": "50",
+      "gender": "Female",
+      "village": "Bangalore ",
+      "pin": "0000",
+      "createdAt": "2026-06-17T10:39:22.579Z"
+    },
+    {
       "id": "p_1773341177608_lwjnp5",
       "name": "Sam",
       "phone": "6363895114",
@@ -159,6 +169,42 @@
   ],
   "appointments": [
     {
+      "id": "a_1781692832692_stiwsn",
+      "patientName": "Sumaiya ",
+      "patientPhone": "8618970278",
+      "doctorName": "Dr Ramesh",
+      "date": "2026-06-18",
+      "appointmentDate": "2026-06-18",
+      "appointmentTime": "09:00 AM",
+      "appointmentDay": "Thu",
+      "consultationType": "Video Call",
+      "reason": "Body rashes",
+      "symptoms": "Body rashes",
+      "suggestedSpecialty": "Dermatologist",
+      "suggestedBySymptoms": true,
+      "status": "scheduled",
+      "createdAt": "2026-06-17T10:40:32.692Z"
+    },
+    {
+      "id": "a_1779617451535_nt3po8",
+      "patientName": "Sam",
+      "patientPhone": "6363895114",
+      "doctorName": "Dr Asha",
+      "date": "2026-05-24",
+      "appointmentDate": "2026-05-24",
+      "appointmentTime": "04:00 PM",
+      "appointmentDay": "Sun",
+      "consultationType": "Video Call",
+      "reason": "General consultation",
+      "symptoms": "",
+      "suggestedSpecialty": "",
+      "suggestedBySymptoms": false,
+      "status": "completed",
+      "createdAt": "2026-05-24T10:10:51.535Z",
+      "completedAt": "2026-05-24T14:46:43.294Z",
+      "updatedAt": "2026-05-24T14:46:43.311Z"
+    },
+    {
       "id": "a_1777098668317_i4b5q0",
       "patientName": "Sam",
       "patientPhone": "6363895114",
@@ -288,25 +334,6 @@
       "createdAt": "2026-03-14T07:08:03.377Z",
       "completedAt": "2026-04-08T11:34:26.873Z",
       "updatedAt": "2026-04-08T11:34:26.878Z"
-    },
-    {
-      "id": "a_1773390301018_s5teq4",
-      "patientName": "Sam",
-      "patientPhone": "6363895114",
-      "doctorName": "Dr Ramesh",
-      "date": "2026-03-13",
-      "appointmentDate": "2026-03-13",
-      "appointmentTime": "02:30 PM",
-      "appointmentDay": "Fri",
-      "consultationType": "Video Call",
-      "reason": "vbb",
-      "symptoms": "vbb",
-      "suggestedSpecialty": "",
-      "suggestedBySymptoms": false,
-      "status": "completed",
-      "createdAt": "2026-03-13T08:25:01.018Z",
-      "completedAt": "2026-03-13T23:47:25.214Z",
-      "updatedAt": "2026-03-13T23:47:25.221Z"
     }
   ],
   "prescriptions": [
@@ -344,6 +371,22 @@
     }
   ],
   "consultations": [
+    {
+      "id": "consult_1779634003295_e8ebr5",
+      "appointmentId": "a_1779617451535_nt3po8",
+      "patientPhone": "6363895114",
+      "patientName": "Sam",
+      "doctorName": "Dr Asha",
+      "consultationType": "Video Call",
+      "date": "2026-05-24",
+      "time": "04:00 PM",
+      "reason": "General consultation",
+      "symptoms": "",
+      "status": "completed",
+      "source": "auto-archived",
+      "completedAt": "2026-05-24T14:46:43.294Z",
+      "createdAt": "2026-05-24T14:46:43.295Z"
+    },
     {
       "id": "consult_1777893373242_y8z1n4",
       "appointmentId": "a_1777098668317_i4b5q0",

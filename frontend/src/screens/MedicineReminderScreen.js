@@ -21,10 +21,18 @@ import {
 import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, Camera } from 'expo-camera';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import MedicineService from '../services/medicineService';
 import NotificationService from '../services/notificationService';
+import MissedMedicineAlertService from '../services/missedMedicineAlertService';
+import * as Notifications from 'expo-notifications';
 import i18n from '../services/languageService';
+import authService from '../services/authService';
 import { A11Y_COLORS, fs, MIN_BUTTON_HEIGHT, MIN_TOUCH_HEIGHT } from '../theme/accessibility';
+
+// Delegate to languageService.t directly so both call styles are supported:
+// t(key, 'default string', { ...options }) and t(key, { ...options })
+const t = (...args) => i18n.t(...args);
 
 export default function MedicineReminderScreen({ navigation, route }) {
   const userId = route?.params?.pendingScanUserId || route?.params?.userId || 'user_123';
@@ -34,6 +42,7 @@ export default function MedicineReminderScreen({ navigation, route }) {
   const [medicines, setMedicines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [notificationAllowed, setNotificationAllowed] = useState(true);
   const [statistics, setStatistics] = useState(null);
   const [selectedMedicineModal, setSelectedMedicineModal] = useState(null);
   const [scanModalState, setScanModalState] = useState(null);
@@ -82,11 +91,87 @@ export default function MedicineReminderScreen({ navigation, route }) {
 
   const takenTotalCount = useMemo(() => takenEntries.length, [takenEntries]);
 
+  const isReminderEligibleMedicine = (medicine) => {
+    const status = String(medicine?.status || '').toLowerCase();
+    const isPausedOrInactive = ['paused', 'inactive', 'cancelled'].includes(status);
+    return Array.isArray(medicine?.times) && medicine.times.length > 0 && !isPausedOrInactive;
+  };
+
   useEffect(() => {
     loadMedicines();
     loadStatistics();
     requestNotificationPermissions();
   }, []);
+
+  // Setup notification listeners for foreground notification handling
+  useEffect(() => {
+    const handleNotificationReceived = (notification) => {
+      const data = notification.request.content.data;
+      console.log('📬 Notification received while app in foreground:', data?.medicineName, data?.time);
+      
+      if (data?.type === 'medicine_reminder') {
+        // Play audio alarm for foreground notifications
+        NotificationService.playInAppEmergencyTone().catch(err => 
+          console.warn('Failed to play alarm sound:', err?.message)
+        );
+
+        Alert.alert(
+          'Medicine reminder',
+          `Time to take ${data?.medicineName || 'your medicine'}${data?.time ? ` at ${data.time}` : ''}.`,
+          [
+            { text: 'Later', style: 'cancel' },
+            {
+              text: 'Scan now',
+              onPress: () => {
+                navigation.navigate('MedicineReminder', {
+                  pendingScanMedicineId: String(data.medicineId || ''),
+                  pendingScanUserId: data.userId || userId,
+                  pendingScanTime: data.time || null,
+                  pendingScanNonce: Date.now(),
+                });
+              },
+            },
+          ]
+        );
+      }
+    };
+
+    const handleNotificationResponse = (response) => {
+      const data = response.notification.request.content.data;
+      console.log('👆 User tapped notification:', data?.medicineName);
+      
+      if (data?.medicineId && data?.type === 'medicine_reminder') {
+        // Stop alarm when user taps notification
+        NotificationService.stopInAppEmergencyTone().catch(err =>
+          console.warn('Failed to stop alarm:', err?.message)
+        );
+        
+        // Navigate to medicine details or mark as taken
+        navigation.navigate('MedicineReminder', {
+          pendingScanMedicineId: String(data.medicineId),
+          pendingScanUserId: data.userId || userId,
+          pendingScanTime: data.time || null,
+          pendingScanNonce: Date.now(),
+        });
+      }
+    };
+
+    // Subscribe to incoming notifications while app is in foreground
+    const notificationSubscription = Notifications.addNotificationReceivedListener(
+      handleNotificationReceived
+    );
+
+    // Subscribe to user tapping notifications
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(
+      handleNotificationResponse
+    );
+
+    return () => {
+      notificationSubscription.remove();
+      responseSubscription.remove();
+      NotificationService.stopInAppEmergencyTone().catch(() => {});
+    };
+  }, [navigation, userId]);
 
   const requestNotificationPermissions = async () => {
     const allowed = await NotificationService.requestPermissions();
@@ -97,10 +182,60 @@ export default function MedicineReminderScreen({ navigation, route }) {
       );
     }
 
+    // Update local status
+    try {
+      const status = await NotificationService.getPermissionsStatus();
+      setNotificationAllowed(!!status);
+    } catch (_) {
+      setNotificationAllowed(Boolean(allowed));
+    }
+
     return allowed;
   };
 
+  const checkNotificationStatus = async () => {
+    try {
+      const status = await NotificationService.getPermissionsStatus();
+      setNotificationAllowed(!!status);
+      return status;
+    } catch (error) {
+      console.warn('Failed to check notification status:', error);
+      return false;
+    }
+  };
 
+  // Schedule missed medicine alerts for the next 30 minutes
+  const scheduleMissedMedicineAlerts = async (medicines) => {
+    try {
+      const emergencyContact = await AsyncStorage.getItem('emergency_contact_number');
+      if (!emergencyContact) {
+        console.log('No emergency contact set for missed medicine alerts');
+        return;
+      }
+
+      const userPhone = await authService.getPhoneNumber();
+      const userName = 'Patient'; // You can enhance this to get actual user name from profile
+
+      const today = new Date().toISOString().split('T')[0];
+
+      medicines.forEach((medicine) => {
+        if (!isReminderEligibleMedicine(medicine)) return;
+
+        (medicine.times || []).forEach((time) => {
+          MissedMedicineAlertService.scheduleMissedMedicineAlert(
+            medicine.id,
+            medicine.name,
+            time,
+            emergencyContact,
+            userName,
+            userPhone
+          );
+        });
+      });
+    } catch (error) {
+      console.error('Error scheduling missed medicine alerts:', error);
+    }
+  };
 
   const loadMedicines = async () => {
     try {
@@ -108,10 +243,19 @@ export default function MedicineReminderScreen({ navigation, route }) {
       const userMedicines = await MedicineService.getUserMedicines(userId);
       setMedicines(userMedicines);
 
+      const activeMedicines = userMedicines.filter(isReminderEligibleMedicine);
+      await NotificationService.syncMedicineReminderList(activeMedicines);
+
+      // Schedule missed medicine alerts for caregiver notification
+      await scheduleMissedMedicineAlerts(activeMedicines);
+
+      // Also refresh permission flag when loading medicines
+      checkNotificationStatus().catch(() => {});
+
 
     } catch (error) {
       console.error('Error loading medicines:', error);
-      Alert.alert('Connection Error', error?.message || 'Failed to connect to medicine service');
+      Alert.alert(t('common.error'), error?.message || t('screens.medicine.failedToConnect'));
     } finally {
       setLoading(false);
     }
@@ -139,19 +283,19 @@ export default function MedicineReminderScreen({ navigation, route }) {
 
   const handleClearAllReminderNotifications = () => {
     Alert.alert(
-      i18n.t('confirm'),
-      'Clear all medicine reminder notifications from this device?',
+      t('screens.medicine.confirm'),
+      t('screens.medicine.clearAllConfirm'),
       [
-        { text: i18n.t('cancel'), style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Clear',
+          text: t('screens.medicine.clear'),
           style: 'destructive',
           onPress: async () => {
             try {
               await NotificationService.cancelAllNotifications();
-              Alert.alert(i18n.t('success'), 'All reminder notifications cleared');
+              Alert.alert(t('common.success'), t('screens.medicine.allReminderNotificationsCleared'));
             } catch (error) {
-              Alert.alert('Error', 'Failed to clear reminder notifications');
+              Alert.alert(t('common.error'), t('screens.medicine.failedToClearReminderNotifications'));
             }
           },
         },
@@ -223,10 +367,8 @@ export default function MedicineReminderScreen({ navigation, route }) {
 
   const recordIntakeForMedicine = async (medicine, time) => {
     try {
-      console.log(`[MedicineReminder] Recording intake for medicine: ${medicine.id} at ${time}`);
       const today = new Date().toISOString().split('T')[0];
       const result = await MedicineService.recordIntake(medicine.id, today, time);
-      console.log(`[MedicineReminder] Intake recorded successfully:`, result);
       
       Alert.alert(
         i18n.t('success'),
@@ -237,8 +379,8 @@ export default function MedicineReminderScreen({ navigation, route }) {
       loadStatistics();
     } catch (error) {
       console.error(`[MedicineReminder] Error recording intake:`, error);
-      const errorMessage = error?.message || 'Failed to record intake. Please check backend connection.';
-      Alert.alert('Recording Failed', errorMessage);
+      const errorMessage = error?.message || t('screens.medicine.failedToRecordIntake');
+      Alert.alert(t('common.error'), errorMessage);
     }
   };
 
@@ -263,17 +405,14 @@ export default function MedicineReminderScreen({ navigation, route }) {
   const handleVerifyScannedItem = async () => {
     if (!scanModalState || scanProcessing) return;
 
-    if (!hasTabletForm(scanModalState?.medicine)) {
-      setScanError('This verification screen is for tablet medicines only.');
-      return;
-    }
-
     setScanProcessing(true);
     await NotificationService.stopInAppEmergencyTone();
     const { medicine, time } = scanModalState;
     setScanModalState(null);
     setScanError('');
     await NotificationService.cancelMedicineTimeReminders(medicine.id, time);
+    // Cancel the missed medicine alert since medicine was taken
+    MissedMedicineAlertService.cancelMissedMedicineAlert(medicine.id, time);
     await recordIntakeForMedicine(medicine, time);
     setScanProcessing(false);
   };
@@ -283,15 +422,21 @@ export default function MedicineReminderScreen({ navigation, route }) {
       if (medicine.status === 'active') {
         await MedicineService.pauseMedicine(medicine.id);
         await NotificationService.cancelAllReminders(medicine);
+        // Cancel all missed medicine alerts for this medicine
+        (medicine.times || []).forEach((time) => {
+          MissedMedicineAlertService.cancelMissedMedicineAlert(medicine.id, time);
+        });
       } else if (medicine.status === 'paused') {
         await MedicineService.resumeMedicine(medicine.id);
         await NotificationService.scheduleDailyReminders(medicine);
+        // Reschedule missed medicine alerts when resuming
+        await scheduleMissedMedicineAlerts([medicine]);
       }
 
-      Alert.alert(i18n.t('success'), 'Medicine status updated');
+      Alert.alert(t('common.success'), t('screens.medicine.medicineStatusUpdated'));
       loadMedicines();
     } catch (error) {
-      Alert.alert('Error', 'Failed to update medicine status');
+      Alert.alert(t('common.error'), t('screens.medicine.failedToUpdateMedicineStatus'));
     }
   };
 
@@ -306,11 +451,15 @@ export default function MedicineReminderScreen({ navigation, route }) {
           onPress: async () => {
             try {
               await NotificationService.cancelAllReminders(medicine);
+              // Cancel all missed medicine alerts for this medicine
+              (medicine.times || []).forEach((time) => {
+                MissedMedicineAlertService.cancelMissedMedicineAlert(medicine.id, time);
+              });
               await MedicineService.deleteMedicine(medicine.id);
-              Alert.alert(i18n.t('success'), 'Medicine deleted');
+              Alert.alert(t('common.success'), t('screens.medicine.medicineDeleted'));
               loadMedicines();
             } catch (error) {
-              Alert.alert('Error', 'Failed to delete medicine');
+              Alert.alert(t('common.error'), t('screens.medicine.failedToDeleteMedicine'));
             }
           },
           style: 'destructive',
@@ -318,6 +467,45 @@ export default function MedicineReminderScreen({ navigation, route }) {
       ]
     );
   };
+
+    const openAppNotificationSettings = async () => {
+      try {
+        // On most platforms this opens the app settings where notifications can be toggled
+        await Linking.openSettings();
+      } catch (error) {
+        console.warn('Failed to open settings:', error);
+        Alert.alert(t('screens.medicine.settings'), t('screens.medicine.unableToOpenSettings'));
+      }
+    };
+
+    const renderNotificationHelper = () => {
+      if (notificationAllowed) return null;
+
+      return (
+        <View style={styles.permissionBanner}>
+          <Text style={styles.permissionText}>{t('screens.medicine.notificationsDisabled')}</Text>
+          <View style={styles.permissionActions}>
+            <TouchableOpacity
+              style={styles.permissionButton}
+              onPress={async () => {
+                const granted = await requestNotificationPermissions();
+                if (granted) {
+                  await NotificationService.syncMedicineReminderList(medicines.filter(isReminderEligibleMedicine));
+                  Alert.alert(t('common.success'), t('screens.medicine.notificationsEnabledAndSynced'));
+                } else {
+                  openAppNotificationSettings();
+                }
+              }}
+            >
+              <Text style={styles.permissionButtonText}>{t('screens.medicine.enableNotifications')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.permissionLink} onPress={openAppNotificationSettings}>
+              <Text style={styles.permissionLinkText}>{t('screens.medicine.openSettings')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    };
 
   const renderMedicineCard = ({ item: medicine }) => {
     const todayIntakes = medicine.intakeDates.find((d) => d.date === today)?.times || [];
@@ -346,7 +534,7 @@ export default function MedicineReminderScreen({ navigation, route }) {
 
         {medicine.status === 'active' && (
           <View style={styles.timesContainer}>
-            <Text style={styles.timesLabel}>Schedule:</Text>
+            <Text style={styles.timesLabel}>{t('screens.medicine.schedule')}:</Text>
             <View style={styles.timePills}>
               {medicine.times.map((time) => {
                 const isTaken = todayIntakes.includes(time);
@@ -406,6 +594,8 @@ export default function MedicineReminderScreen({ navigation, route }) {
     );
   };
 
+
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'active':
@@ -426,7 +616,7 @@ export default function MedicineReminderScreen({ navigation, route }) {
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{statistics.activeMedicines}</Text>
-          <Text style={styles.statLabel}>Active</Text>
+          <Text style={styles.statLabel}>{t('screens.medicine.active')}</Text>
         </View>
         <View style={styles.statCard}>
           <View style={styles.totalIntakeRow}>
@@ -439,7 +629,7 @@ export default function MedicineReminderScreen({ navigation, route }) {
               <Ionicons name="add" size={20} color="#fff" />
             </TouchableOpacity>
           </View>
-          <Text style={styles.statLabel}>Total Intakes</Text>
+          <Text style={styles.statLabel}>{t('screens.medicine.totalIntakes')}</Text>
         </View>
       </View>
     );
@@ -456,14 +646,14 @@ export default function MedicineReminderScreen({ navigation, route }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Medicine Reminders</Text>
+        <Text style={styles.headerTitle}>{t('screens.medicine.remindersPageTitle')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
       <View style={styles.topActionsRow}>
         <TouchableOpacity style={styles.clearNotificationsButton} onPress={handleClearAllReminderNotifications}>
           <Ionicons name="notifications-off" size={20} color="#fff" />
-          <Text style={styles.clearNotificationsText}>Clear reminder notifications</Text>
+          <Text style={styles.clearNotificationsText}>{t('screens.medicine.clearReminderNotifications')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -473,7 +663,7 @@ export default function MedicineReminderScreen({ navigation, route }) {
           onPress={() => setActiveTab('set')}
         >
           <Text style={[styles.tabText, activeTab === 'set' && styles.tabTextActive]}>
-            Reminders Set ({remindersSetCount})
+            {t('screens.medicine.remindersSet', { count: remindersSetCount })}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -481,7 +671,10 @@ export default function MedicineReminderScreen({ navigation, route }) {
           onPress={() => setActiveTab('taken')}
         >
           <Text style={[styles.tabText, activeTab === 'taken' && styles.tabTextActive]}>
-            Taken ({takenTodayCount} today / {takenTotalCount} total)
+            {t('screens.medicine.takenSummary', {
+              todayCount: takenTodayCount,
+              totalCount: takenTotalCount,
+            })}
           </Text>
         </TouchableOpacity>
       </View>
@@ -495,12 +688,12 @@ export default function MedicineReminderScreen({ navigation, route }) {
         {activeTab === 'set' && medicines.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="medical" size={84} color="#D0D0D0" />
-            <Text style={styles.emptyText}>No medicines added yet</Text>
+            <Text style={styles.emptyText}>{t('screens.medicine.noMedicinesAddedYet')}</Text>
             <TouchableOpacity
               style={styles.emptyButton}
               onPress={handleAddMedicine}
             >
-              <Text style={styles.emptyButtonText}>Add Medicine</Text>
+              <Text style={styles.emptyButtonText}>{t('screens.medicine.addMedicine')}</Text>
             </TouchableOpacity>
           </View>
         ) : activeTab === 'set' ? (
@@ -514,7 +707,7 @@ export default function MedicineReminderScreen({ navigation, route }) {
         ) : takenEntries.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="checkmark-done" size={84} color="#D0D0D0" />
-            <Text style={styles.emptyText}>No intake recorded yet</Text>
+            <Text style={styles.emptyText}>{t('screens.medicine.noIntakeRecordedYet')}</Text>
           </View>
         ) : (
           <View style={styles.takenList}>
@@ -525,7 +718,9 @@ export default function MedicineReminderScreen({ navigation, route }) {
                     <Ionicons name="checkmark-circle" size={24} color="#34C759" />
                     <View>
                       <Text style={styles.takenName}>{entry.medicineName}</Text>
-                      <Text style={styles.takenMeta}>Taken on {entry.date} at {entry.time}</Text>
+                        <Text style={styles.takenMeta}>
+                          {t('screens.medicine.takenOn', { date: entry.date, time: entry.time })}
+                        </Text>
                     </View>
                   </View>
 
@@ -541,7 +736,7 @@ export default function MedicineReminderScreen({ navigation, route }) {
                     }}
                   >
                     <Ionicons name="pencil" size={18} color="#007AFF" />
-                    <Text style={styles.takenEditText}>Edit</Text>
+                    <Text style={styles.takenEditText}>{t('screens.medicine.edit')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -571,21 +766,21 @@ export default function MedicineReminderScreen({ navigation, route }) {
 
               <ScrollView style={styles.modalBody}>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Dosage:</Text>
+                  <Text style={styles.detailLabel}>{t('screens.medicine.dosage')}:</Text>
                   <Text style={styles.detailValue}>
                     {selectedMedicineModal.dosage}
                   </Text>
                 </View>
 
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Frequency:</Text>
+                  <Text style={styles.detailLabel}>{t('screens.medicine.frequency')}:</Text>
                   <Text style={styles.detailValue}>
                     {selectedMedicineModal.frequency}
                   </Text>
                 </View>
 
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Schedule:</Text>
+                  <Text style={styles.detailLabel}>{t('screens.medicine.schedule')}:</Text>
                   <View style={styles.timesList}>
                     {selectedMedicineModal.times.map((time) => (
                       <Text key={time} style={styles.timeItem}>
@@ -597,7 +792,7 @@ export default function MedicineReminderScreen({ navigation, route }) {
 
                 {selectedMedicineModal.purpose && (
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Purpose:</Text>
+                    <Text style={styles.detailLabel}>{t('screens.medicine.purpose')}:</Text>
                     <Text style={styles.detailValue}>
                       {selectedMedicineModal.purpose}
                     </Text>
@@ -606,7 +801,7 @@ export default function MedicineReminderScreen({ navigation, route }) {
 
                 {selectedMedicineModal.instructions && (
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Instructions:</Text>
+                    <Text style={styles.detailLabel}>{t('screens.medicine.instructions')}:</Text>
                     <Text style={styles.detailValue}>
                       {selectedMedicineModal.instructions}
                     </Text>
@@ -615,7 +810,7 @@ export default function MedicineReminderScreen({ navigation, route }) {
 
                 {selectedMedicineModal.sideEffects && (
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Side Effects:</Text>
+                    <Text style={styles.detailLabel}>{t('screens.medicine.sideEffects')}:</Text>
                     <Text style={styles.detailValue}>
                       {selectedMedicineModal.sideEffects}
                     </Text>
@@ -627,7 +822,7 @@ export default function MedicineReminderScreen({ navigation, route }) {
                 style={styles.closeModalButton}
                 onPress={() => setSelectedMedicineModal(null)}
               >
-                <Text style={styles.closeModalButtonText}>Close</Text>
+                <Text style={styles.closeModalButtonText}>{t('screens.medicine.close')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -641,7 +836,7 @@ export default function MedicineReminderScreen({ navigation, route }) {
       >
         <View style={styles.scanContainer}>
           <View style={styles.scanHeader}>
-            <Text style={styles.scanTitle}>Show your medicine</Text>
+            <Text style={styles.scanTitle}>{t('screens.medicine.showYourMedicine')}</Text>
             <TouchableOpacity onPress={() => setScanModalState(null)}>
               <Ionicons name="close" size={30} color="#000" />
             </TouchableOpacity>
@@ -653,12 +848,12 @@ export default function MedicineReminderScreen({ navigation, route }) {
 
           {!cameraGranted ? (
             <View style={styles.scanPermissionBox}>
-              <Text style={styles.scanInfoText}>Camera permission is required to confirm you have the medicine.</Text>
+              <Text style={styles.scanInfoText}>{t('screens.medicine.cameraPermissionRequired')}</Text>
               <TouchableOpacity style={styles.scanPrimaryButton} onPress={async () => {
                 const result = await Camera.requestCameraPermissionsAsync();
                 setCameraGranted(result.granted);
               }}>
-                <Text style={styles.scanPrimaryButtonText}>Allow Camera</Text>
+                <Text style={styles.scanPrimaryButtonText}>{t('screens.medicine.allowCamera')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -675,7 +870,7 @@ export default function MedicineReminderScreen({ navigation, route }) {
           )}
 
           <Text style={styles.scanHintText}>
-            Point the camera at the tablet strip/tablet and tap Verify. No barcode or text scan is required.
+            {t('screens.medicine.scanHint')}
           </Text>
 
           <TouchableOpacity
@@ -688,7 +883,7 @@ export default function MedicineReminderScreen({ navigation, route }) {
             ) : (
               <>
                 <Ionicons name="checkmark-circle" size={24} color="#fff" />
-                <Text style={styles.scanConfirmButtonText}>Verify</Text>
+                <Text style={styles.scanConfirmButtonText}>{t('screens.medicine.verify')}</Text>
               </>
             )}
           </TouchableOpacity>
@@ -704,6 +899,38 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: A11Y_COLORS.surface,
+  },
+  debugControlsWrap: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    flexWrap: 'wrap',
+  },
+  debugButton: {
+    flexGrow: 1,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  debugButtonNeutral: {
+    borderColor: '#999',
+  },
+  debugButtonDanger: {
+    borderColor: '#c33',
+  },
+  debugButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#333',
+    textAlign: 'center',
+  },
+  debugButtonTextDanger: {
+    color: '#c33',
   },
   centerContainer: {
     flex: 1,
@@ -757,6 +984,7 @@ const styles = StyleSheet.create({
     fontSize: fs(13),
     fontWeight: '700',
   },
+  
 
   tabRow: {
     flexDirection: 'row',
@@ -897,6 +1125,42 @@ const styles = StyleSheet.create({
     elevation: 3,
     borderLeftWidth: 4,
     borderLeftColor: '#34C759',
+  },
+  permissionBanner: {
+    backgroundColor: '#FFF4E5',
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9500',
+    padding: 12,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 8,
+  },
+  permissionText: {
+    color: '#7A4A00',
+    fontSize: fs(13),
+    marginBottom: 8,
+  },
+  permissionActions: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  permissionButton: {
+    backgroundColor: A11Y_COLORS.brand,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  permissionButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  permissionLink: {
+    marginLeft: 12,
+  },
+  permissionLinkText: {
+    color: A11Y_COLORS.brand,
+    textDecorationLine: 'underline',
   },
   pausedCard: {
     borderLeftColor: '#FF9500',

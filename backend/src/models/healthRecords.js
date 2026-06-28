@@ -15,6 +15,14 @@ let healthTimeline = {
   // User ID -> Array of health events (sorted by date)
 };
 
+let videoLibrary = {
+  // Video ID -> Video object
+};
+
+let videoAssignments = {
+  // Assignment ID -> Assignment object
+};
+
 // Generate unique IDs
 const generatePrescriptionId = () => {
   return `rx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -28,7 +36,417 @@ const generateHealthEventId = () => {
   return `event_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 };
 
+const generateVideoId = () => {
+  return `video_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
+
+const generateVideoAssignmentId = () => {
+  return `vassign_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
+
+const clampPercentage = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 0;
+  return Math.max(0, Math.min(100, numeric));
+};
+
+const seedCuratedVideos = () => {
+  const seededVideos = [
+    {
+      id: 'lib_cpr_basics',
+      title: 'Hands-Only CPR Basics',
+      category: 'Emergency first aid',
+      tags: ['cpr', 'emergency', 'cardiac'],
+      thumbnail: 'https://img.youtube.com/vi/-NodDRTsV88/hqdefault.jpg',
+      youtubeEmbedUrl: 'https://www.youtube.com/embed/-NodDRTsV88',
+      targetCondition: 'Cardiac arrest',
+      recommendedByDoctor: false,
+      captionsAvailable: true,
+      playbackSpeeds: [0.75, 1, 1.25, 1.5],
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'lib_choking_response',
+      title: 'Adult Choking Response',
+      category: 'Emergency first aid',
+      tags: ['choking', 'heimlich', 'emergency'],
+      thumbnail: 'https://img.youtube.com/vi/7CgtIgSyAiU/hqdefault.jpg',
+      youtubeEmbedUrl: 'https://www.youtube.com/embed/7CgtIgSyAiU',
+      targetCondition: 'Airway obstruction',
+      recommendedByDoctor: false,
+      captionsAvailable: true,
+      playbackSpeeds: [0.75, 1, 1.25, 1.5],
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'lib_asthma_breathing',
+      title: 'Breathing Exercises for Asthma',
+      category: 'Breathing & lungs',
+      tags: ['asthma', 'breathing', 'lungs'],
+      thumbnail: 'https://img.youtube.com/vi/DG_0P5MriqY/hqdefault.jpg',
+      youtubeEmbedUrl: 'https://www.youtube.com/embed/DG_0P5MriqY',
+      targetCondition: 'Asthma',
+      recommendedByDoctor: false,
+      captionsAvailable: true,
+      playbackSpeeds: [0.75, 1, 1.25, 1.5],
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'lib_low_back_rehab',
+      title: 'Lower Back Rehab Routine',
+      category: 'Rehabilitation',
+      tags: ['back pain', 'rehab', 'exercise'],
+      thumbnail: 'https://img.youtube.com/vi/4BOTvaRaDjI/hqdefault.jpg',
+      youtubeEmbedUrl: 'https://www.youtube.com/embed/4BOTvaRaDjI',
+      targetCondition: 'Lower back pain',
+      recommendedByDoctor: false,
+      captionsAvailable: true,
+      playbackSpeeds: [0.75, 1, 1.25, 1.5],
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'lib_diabetes_nutrition',
+      title: 'Diabetes Nutrition Planning',
+      category: 'Nutrition',
+      tags: ['diabetes', 'nutrition', 'diet'],
+      thumbnail: 'https://img.youtube.com/vi/S6z6I6sXQbA/hqdefault.jpg',
+      youtubeEmbedUrl: 'https://www.youtube.com/embed/S6z6I6sXQbA',
+      targetCondition: 'Type 2 diabetes',
+      recommendedByDoctor: false,
+      captionsAvailable: true,
+      playbackSpeeds: [0.75, 1, 1.25, 1.5],
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'lib_bp_management',
+      title: 'Blood Pressure Self-Management',
+      category: 'Chronic disease',
+      tags: ['hypertension', 'blood pressure', 'chronic'],
+      thumbnail: 'https://img.youtube.com/vi/JhWQ2aA3fVQ/hqdefault.jpg',
+      youtubeEmbedUrl: 'https://www.youtube.com/embed/JhWQ2aA3fVQ',
+      targetCondition: 'Hypertension',
+      recommendedByDoctor: false,
+      captionsAvailable: true,
+      playbackSpeeds: [0.75, 1, 1.25, 1.5],
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'lib_senior_fall_prevention',
+      title: 'Senior Fall Prevention Exercises',
+      category: 'Senior care',
+      tags: ['senior', 'fall prevention', 'mobility'],
+      thumbnail: 'https://img.youtube.com/vi/1JgBp7dX4AU/hqdefault.jpg',
+      youtubeEmbedUrl: 'https://www.youtube.com/embed/1JgBp7dX4AU',
+      targetCondition: 'Fall risk',
+      recommendedByDoctor: false,
+      captionsAvailable: true,
+      playbackSpeeds: [0.75, 1, 1.25, 1.5],
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'lib_child_fever_care',
+      title: 'Child Fever Home Care',
+      category: 'Pediatric',
+      tags: ['pediatric', 'fever', 'home care'],
+      thumbnail: 'https://img.youtube.com/vi/Gj8E3s-k6yQ/hqdefault.jpg',
+      youtubeEmbedUrl: 'https://www.youtube.com/embed/Gj8E3s-k6yQ',
+      targetCondition: 'Pediatric fever',
+      recommendedByDoctor: false,
+      captionsAvailable: true,
+      playbackSpeeds: [0.75, 1, 1.25, 1.5],
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ];
+
+  seededVideos.forEach((video) => {
+    videoLibrary[video.id] = video;
+  });
+};
+
+seedCuratedVideos();
+
 module.exports = {
+  /**
+   * Get curated video library
+   */
+  listVideoLibrary: (filters = {}) => {
+    const categoryFilter = (filters.category || '').toLowerCase();
+    const tagFilter = (filters.tag || '').toLowerCase();
+    const conditionFilter = (filters.condition || '').toLowerCase();
+    const queryFilter = (filters.q || '').toLowerCase();
+
+    return Object.values(videoLibrary)
+      .filter((video) => video.isActive !== false)
+      .filter((video) => {
+        if (categoryFilter && (video.category || '').toLowerCase() !== categoryFilter) {
+          return false;
+        }
+
+        if (
+          tagFilter &&
+          !(video.tags || []).some((tag) => tag.toLowerCase().includes(tagFilter))
+        ) {
+          return false;
+        }
+
+        if (
+          conditionFilter &&
+          !(video.targetCondition || '').toLowerCase().includes(conditionFilter)
+        ) {
+          return false;
+        }
+
+        if (queryFilter) {
+          const haystack = [
+            video.title,
+            video.category,
+            video.targetCondition,
+            ...(video.tags || []),
+          ]
+            .join(' ')
+            .toLowerCase();
+
+          if (!haystack.includes(queryFilter)) {
+            return false;
+          }
+        }
+
+        return true;
+      })
+      .sort((a, b) => a.title.localeCompare(b.title));
+  },
+
+  /**
+   * Add video to curated library
+   */
+  addVideoToLibrary: (videoData) => {
+    const videoId = videoData.id || generateVideoId();
+    const now = new Date().toISOString();
+
+    const video = {
+      id: videoId,
+      title: videoData.title || 'Untitled video',
+      category: videoData.category || 'General',
+      tags: Array.isArray(videoData.tags) ? videoData.tags : [],
+      thumbnail: videoData.thumbnail || '',
+      youtubeEmbedUrl: videoData.youtubeEmbedUrl || '',
+      targetCondition: videoData.targetCondition || '',
+      recommendedByDoctor: Boolean(videoData.recommendedByDoctor),
+      captionsAvailable: videoData.captionsAvailable !== false,
+      playbackSpeeds: Array.isArray(videoData.playbackSpeeds)
+        ? videoData.playbackSpeeds
+        : [0.75, 1, 1.25, 1.5],
+      isActive: videoData.isActive !== false,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    videoLibrary[videoId] = video;
+    return video;
+  },
+
+  /**
+   * Update video in library
+   */
+  updateVideoInLibrary: (videoId, updateData) => {
+    if (!videoLibrary[videoId]) {
+      return null;
+    }
+
+    videoLibrary[videoId] = {
+      ...videoLibrary[videoId],
+      ...updateData,
+      id: videoId,
+      updatedAt: new Date().toISOString(),
+    };
+
+    return videoLibrary[videoId];
+  },
+
+  /**
+   * Delete video from library
+   */
+  deleteVideoFromLibrary: (videoId) => {
+    const existing = videoLibrary[videoId];
+    if (!existing) {
+      return null;
+    }
+
+    delete videoLibrary[videoId];
+    return existing;
+  },
+
+  /**
+   * Assign a video to patient
+   */
+  assignVideoToPatient: (assignmentData) => {
+    const {
+      userId,
+      doctorId,
+      doctorName,
+      videoId,
+      notes,
+      dueDate,
+      targetCondition,
+    } = assignmentData;
+
+    const video = videoLibrary[videoId];
+    if (!video) {
+      throw new Error('Video not found in library');
+    }
+
+    const assignmentId = generateVideoAssignmentId();
+    const now = new Date().toISOString();
+    const assignment = {
+      id: assignmentId,
+      userId,
+      doctorId: doctorId || '',
+      doctorName: doctorName || '',
+      videoId,
+      title: video.title,
+      category: video.category,
+      tags: video.tags || [],
+      thumbnail: video.thumbnail || '',
+      youtubeEmbedUrl: video.youtubeEmbedUrl,
+      targetCondition: targetCondition || video.targetCondition || '',
+      recommendedByDoctor: assignmentData.recommendedByDoctor !== false,
+      notes: notes || '',
+      dueDate: dueDate || null,
+      watchPercentage: 0,
+      lastPositionSeconds: 0,
+      playbackRate: 1,
+      captionsEnabled: true,
+      status: 'assigned', // assigned, in_progress, completed
+      notificationSent: assignmentData.notificationSent !== false,
+      assignedAt: now,
+      lastWatchedAt: null,
+      completedAt: null,
+      updatedAt: now,
+    };
+
+    videoAssignments[assignmentId] = assignment;
+
+    if (!healthTimeline[userId]) {
+      healthTimeline[userId] = [];
+    }
+
+    healthTimeline[userId].push({
+      id: generateHealthEventId(),
+      type: 'video-assignment',
+      referenceId: assignmentId,
+      date: new Date().toISOString().split('T')[0],
+      title: `Care video assigned: ${video.title}`,
+      description: notes || `Assigned by ${doctorName || 'doctor'}`,
+      timestamp: now,
+    });
+
+    return assignment;
+  },
+
+  /**
+   * Get assigned videos for user
+   */
+  getUserAssignedVideos: (userId, status = '') => {
+    return Object.values(videoAssignments)
+      .filter((assignment) => assignment.userId === userId)
+      .filter((assignment) => (status ? assignment.status === status : true))
+      .sort((a, b) => new Date(b.assignedAt) - new Date(a.assignedAt));
+  },
+
+  /**
+   * Track watch progress for assigned video
+   */
+  updateAssignedVideoProgress: (assignmentId, progressData) => {
+    const existing = videoAssignments[assignmentId];
+    if (!existing) {
+      return null;
+    }
+
+    const now = new Date().toISOString();
+    const watchPercentage = clampPercentage(
+      progressData.watchPercentage !== undefined
+        ? progressData.watchPercentage
+        : existing.watchPercentage
+    );
+
+    const nextStatus = watchPercentage >= 90
+      ? 'completed'
+      : watchPercentage > 0
+        ? 'in_progress'
+        : 'assigned';
+
+    const updated = {
+      ...existing,
+      watchPercentage,
+      lastPositionSeconds:
+        progressData.lastPositionSeconds !== undefined
+          ? Number(progressData.lastPositionSeconds) || 0
+          : existing.lastPositionSeconds,
+      playbackRate:
+        progressData.playbackRate !== undefined
+          ? Number(progressData.playbackRate) || existing.playbackRate
+          : existing.playbackRate,
+      captionsEnabled:
+        progressData.captionsEnabled !== undefined
+          ? Boolean(progressData.captionsEnabled)
+          : existing.captionsEnabled,
+      status: nextStatus,
+      lastWatchedAt: now,
+      completedAt:
+        nextStatus === 'completed' && !existing.completedAt
+          ? now
+          : existing.completedAt,
+      updatedAt: now,
+    };
+
+    videoAssignments[assignmentId] = updated;
+
+    if (nextStatus === 'completed' && !existing.completedAt) {
+      if (!healthTimeline[existing.userId]) {
+        healthTimeline[existing.userId] = [];
+      }
+
+      healthTimeline[existing.userId].push({
+        id: generateHealthEventId(),
+        type: 'video-completion',
+        referenceId: assignmentId,
+        date: new Date().toISOString().split('T')[0],
+        title: `Completed care video: ${existing.title}`,
+        description: `Watch progress reached ${watchPercentage}%`,
+        timestamp: now,
+      });
+    }
+
+    return updated;
+  },
+
+  /**
+   * Doctor-facing assigned video dashboard data
+   */
+  getDoctorAssignedVideos: (doctorId, userId = '', status = '') => {
+    return Object.values(videoAssignments)
+      .filter((assignment) => assignment.doctorId === doctorId)
+      .filter((assignment) => (userId ? assignment.userId === userId : true))
+      .filter((assignment) => (status ? assignment.status === status : true))
+      .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  },
+
   /**
    * Add a new prescription
    */
@@ -289,12 +707,19 @@ module.exports = {
       (cons) => cons.userId === userId
     );
     const userTimeline = healthTimeline[userId] || [];
+    const userVideoAssignments = Object.values(videoAssignments).filter(
+      (assignment) => assignment.userId === userId
+    );
 
     const activePrescriptions = userPrescriptions.filter(
       (rx) => rx.status === 'active'
     );
     const completedPrescriptions = userPrescriptions.filter(
       (rx) => rx.status === 'completed'
+    );
+
+    const completedVideos = userVideoAssignments.filter(
+      (assignment) => assignment.status === 'completed'
     );
 
     // Get most common diagnoses
@@ -327,6 +752,15 @@ module.exports = {
       totalPrescriptions: userPrescriptions.length,
       activePrescriptions: activePrescriptions.length,
       completedPrescriptions: completedPrescriptions.length,
+      totalAssignedVideos: userVideoAssignments.length,
+      completedVideos: completedVideos.length,
+      averageVideoWatchPercentage:
+        userVideoAssignments.length > 0
+          ? Math.round(
+            userVideoAssignments.reduce((sum, assignment) => sum + (assignment.watchPercentage || 0), 0) /
+                userVideoAssignments.length
+          )
+          : 0,
       timelineEvents: userTimeline.length,
       topDiagnoses,
       uniqueMedicines: Array.from(medicinesSet),
@@ -397,5 +831,6 @@ module.exports = {
     Object.keys(prescriptions).forEach((key) => delete prescriptions[key]);
     Object.keys(consultations).forEach((key) => delete consultations[key]);
     Object.keys(healthTimeline).forEach((key) => delete healthTimeline[key]);
+    Object.keys(videoAssignments).forEach((key) => delete videoAssignments[key]);
   },
 };

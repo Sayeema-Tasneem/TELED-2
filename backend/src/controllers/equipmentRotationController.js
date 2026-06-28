@@ -6,6 +6,8 @@ const {
   activateDonor,
   createListing,
   getListings,
+  getListingsByDonor,
+  deleteListing,
   moderateListing,
   createRequest,
   getRequestsByDoctor,
@@ -94,6 +96,46 @@ exports.getListings = (req, res) => {
   } catch (error) {
     console.error('Error fetching listings:', error);
     return res.status(500).json({ success: false, message: 'Failed to fetch equipment listings', error: error.message });
+  }
+};
+
+exports.getDonorListings = (req, res) => {
+  try {
+    const donorUserId = req.user?.role === 'admin'
+      ? req.params?.donorUserId
+      : req.user?.phoneNumber;
+    const listings = getListingsByDonor(donorUserId);
+
+    return res.status(200).json({
+      success: true,
+      count: listings.length,
+      listings,
+    });
+  } catch (error) {
+    console.error('Error fetching donor listings:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch donor listings', error: error.message });
+  }
+};
+
+exports.deleteListing = (req, res) => {
+  try {
+    const { id: listingId } = req.params;
+    const result = deleteListing({
+      listingId,
+      requesterUserId: req.user?.phoneNumber,
+      requesterRole: req.user?.role,
+    });
+
+    if (result?.listing?.donorUserId) {
+      recalculateDonorImpact(result.listing.donorUserId);
+    }
+
+    return handleResult(res, result, 200, {
+      message: 'Equipment listing deleted successfully',
+    });
+  } catch (error) {
+    console.error('Error deleting listing:', error);
+    return res.status(500).json({ success: false, message: 'Failed to delete equipment listing', error: error.message });
   }
 };
 

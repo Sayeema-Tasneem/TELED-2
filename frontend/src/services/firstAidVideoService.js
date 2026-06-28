@@ -1,207 +1,220 @@
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
-
 const VIDEO_LIBRARY = [
   {
-    id: 'snake-bite',
-    title: 'Snake Bite First Aid',
-    category: 'Emergency',
+    id: 'cpr-adult',
+    title: 'How to do CPR on an Adult - St John Ambulance',
+    category: 'Life saving',
     emergencyLevel: 'Critical',
-    videoUrl: 'https://samplelib.com/lib/preview/mp4/sample-10s.mp4',
-    downloadName: 'snake-bite-first-aid.mp4',
-    summary: 'Stay calm, keep the person still, remove rings/tight items, and rush to the hospital immediately.',
-    do: [
-      'Keep the patient calm and still.',
-      'Immobilize the bitten limb below heart level if possible.',
-      'Get emergency medical help immediately.',
-    ],
-    dont: [
-      'Do not cut, suck, or squeeze the bite.',
-      'Do not apply ice, a tourniquet, or chemicals.',
-      'Do not let the patient walk around unnecessarily.',
-    ],
-    warning: 'Snake bites can become life-threatening fast. This video is for first aid only — go to a hospital immediately.',
+    youtubeUrl: 'https://www.youtube.com/watch?v=BQNNOh8c8ks',
+    thumbnailUrl: 'https://img.youtube.com/vi/BQNNOh8c8ks/hqdefault.jpg',
+    summary: 'Call for help, start chest compressions at 100–120/min and give rescue breaths if trained.',
+    targetCondition: 'Cardiac arrest / not breathing',
+    tags: ['CPR', 'cardiac arrest', 'life saving'],
+    do: ['Shout for help and call emergency services', 'Push hard and fast in the centre of the chest', 'Give rescue breaths if trained'],
+    dont: ['Do not stop compressions unless help arrives', 'Do not give up after a few compressions'],
+    warning: 'If an AED is available use it as soon as possible.',
   },
   {
-    id: 'leech-bite',
-    title: 'Leech Bite Care',
-    category: 'Bites',
-    emergencyLevel: 'Medium',
-    videoUrl: 'https://samplelib.com/lib/preview/mp4/sample-5s.mp4',
-    downloadName: 'leech-bite-care.mp4',
-    summary: 'Detach the leech safely, clean the wound, and watch for prolonged bleeding or infection.',
-    do: [
-      'Wash hands and clean the area with clean water.',
-      'Let the leech release naturally or gently detach it from the head end.',
-      'Apply gentle pressure if there is bleeding and seek help if bleeding continues.',
-    ],
-    dont: [
-      'Do not yank the leech off forcefully.',
-      'Do not use salt, heat, or chemicals directly on the skin.',
-      'Do not scratch the wound.',
-    ],
-    warning: 'If the wound keeps bleeding, swells, or shows signs of infection, get medical help.',
+    id: 'cpr-child',
+    title: 'How to do Child CPR - St John Ambulance',
+    category: 'Life saving',
+    emergencyLevel: 'Critical',
+    youtubeUrl: 'https://www.youtube.com/watch?v=0aV9NS0ogiM',
+    thumbnailUrl: 'https://img.youtube.com/vi/0aV9NS0ogiM/hqdefault.jpg',
+    summary: 'Start with 5 rescue breaths then 30 compressions; adjust technique for a child.',
+    targetCondition: 'Child unconscious / not breathing',
+    tags: ['CPR', 'paediatric', 'life saving'],
+    do: ['Give 5 initial rescue breaths', 'Perform 30 compressions and 2 breaths cycles', 'Call emergency services if not already done'],
+    dont: ['Do not use adult-only techniques without training', 'Do not delay CPR to look for pulse'],
+    warning: 'If you are unsure, follow dispatcher instructions while performing CPR.',
+  },
+  {
+    id: 'choking-adult',
+    title: 'First Aid Training: Choking - St John Ambulance',
+    category: 'Airway',
+    emergencyLevel: 'Critical',
+    youtubeUrl: 'https://www.youtube.com/watch?v=HGBBu4zr8sM',
+    thumbnailUrl: 'https://img.youtube.com/vi/HGBBu4zr8sM/hqdefault.jpg',
+    summary: 'If they cannot breathe, give back blows then abdominal thrusts (or chest thrusts for pregnant/obese).',
+    targetCondition: 'Choking / airway obstruction',
+    tags: ['choking', 'airway'],
+    do: ['Encourage coughing if they can cough', 'Give up to 5 firm back blows', 'Perform abdominal thrusts if blockage persists'],
+    dont: ['Do not hit the person on the back if they are unconscious', 'Do not perform blind finger sweeps'],
+    warning: 'Call emergency services immediately if airway remains blocked.',
+  },
+  {
+    id: 'choking-child',
+    title: 'What to do if Your Baby is Choking - St John Ambulance',
+    category: 'Airway',
+    emergencyLevel: 'Critical',
+    youtubeUrl: 'https://www.youtube.com/watch?v=oswDpwzbAV8',
+    thumbnailUrl: 'https://img.youtube.com/vi/oswDpwzbAV8/hqdefault.jpg',
+    summary: 'For infants use back blows and chest thrusts; call for help early.',
+    targetCondition: 'Infant choking',
+    tags: ['choking', 'infant', 'paediatric'],
+    do: ['Place infant face down on your forearm and give 5 back blows', 'If not cleared give 5 chest thrusts and repeat'],
+    dont: ['Do not perform abdominal thrusts on infants', 'Do not leave the infant unattended'],
+    warning: 'If the infant becomes unresponsive start infant CPR and call emergency services.',
+  },
+  {
+    id: 'severe-bleeding',
+    title: 'How to Treat Severe Bleeding - St John Ambulance',
+    category: 'Bleeding',
+    emergencyLevel: 'Critical',
+    youtubeUrl: 'https://www.youtube.com/watch?v=NxO5LvgqZe0',
+    thumbnailUrl: 'https://img.youtube.com/vi/NxO5LvgqZe0/hqdefault.jpg',
+    summary: 'Apply direct pressure, elevation and a dressing; use a tourniquet only if trained and severe.',
+    targetCondition: 'Severe external bleeding',
+    tags: ['bleeding', 'tourniquet', 'life saving'],
+    do: ['Apply firm direct pressure', 'Use a sterile dressing and keep pressure until help arrives', 'Elevate limb if it does not cause more harm'],
+    dont: ['Do not remove embedded objects', 'Do not delay calling emergency services'],
+    warning: 'Severe bleeding can rapidly lead to shock—get emergency help.',
+  },
+  {
+    id: 'heart-attack',
+    title: 'Heart Attack Symptoms & How to Treat a Heart Attack - St John Ambulance',
+    category: 'Cardiac',
+    emergencyLevel: 'High',
+    youtubeUrl: 'https://www.youtube.com/watch?v=gDwt7dD3awc',
+    thumbnailUrl: 'https://img.youtube.com/vi/gDwt7dD3awc/hqdefault.jpg',
+    summary: 'Recognise chest pain, shortness of breath; call emergency services and help them rest comfortably.',
+    targetCondition: 'Heart attack / chest pain',
+    tags: ['heart', 'cardiac', 'emergency'],
+    do: ['Call emergency services immediately', 'Help the person to sit comfortably and loosen tight clothing', 'If they become unresponsive and not breathing start CPR'],
+    dont: ['Do not give food or drink if they are breathless', 'Do not delay seeking urgent care'],
+    warning: 'Some heart attack advice videos are language-specific; follow local emergency guidance.',
+  },
+  {
+    id: 'stroke',
+    title: 'What To Do If Someone Has A Stroke - St John Ambulance',
+    category: 'Neurology',
+    emergencyLevel: 'Critical',
+    youtubeUrl: 'https://www.youtube.com/watch?v=PhH9a0kIwmk',
+    thumbnailUrl: 'https://img.youtube.com/vi/PhH9a0kIwmk/hqdefault.jpg',
+    summary: 'Use the FAST test: Face, Arms, Speech, Time — call emergency services immediately.',
+    targetCondition: 'Stroke',
+    tags: ['stroke', 'FAST', 'neurology'],
+    do: ['Check for facial droop, arm weakness and slurred speech', 'Call emergency services immediately', 'Note the time symptoms started'],
+    dont: ['Do not give food or drink', 'Do not delay transport to hospital'],
+    warning: 'Every minute counts with stroke — rapid treatment improves outcomes.',
+  },
+  {
+    id: 'seizure',
+    title: 'What To Do If Someone Has A Seizure - St John Ambulance',
+    category: 'Neurology',
+    emergencyLevel: 'High',
+    youtubeUrl: 'https://www.youtube.com/watch?v=Ovsw7tdneqE',
+    thumbnailUrl: 'https://img.youtube.com/vi/Ovsw7tdneqE/hqdefault.jpg',
+    summary: 'Keep the person safe, time the seizure, and call for help if it lasts >5 minutes or they are injured.',
+    targetCondition: 'Seizure / fit',
+    tags: ['seizure', 'neurology'],
+    do: ['Protect the person from injury, clear nearby hazards', 'Roll them into recovery position once the seizure stops and they are breathing'],
+    dont: ['Do not restrain movements', 'Do not put anything in their mouth'],
+    warning: 'Seek emergency help for first seizure, repeated seizures, or seizure lasting more than 5 minutes.',
   },
   {
     id: 'burns',
-    title: 'Burns First Aid',
-    category: 'Emergency',
+    title: 'Burns and Scalds - Animated - St John Ambulance',
+    category: 'Injuries',
     emergencyLevel: 'High',
-    videoUrl: 'https://samplelib.com/lib/preview/mp4/sample-15s.mp4',
-    downloadName: 'burns-first-aid.mp4',
-    summary: 'Cool the burn with running water, remove tight items, and cover with a clean cloth.',
-    do: [
-      'Cool the area under cool running water for 20 minutes.',
-      'Remove rings, watches, or tight clothing near the burn.',
-      'Cover with a sterile non-stick dressing or clean cloth.',
-    ],
-    dont: [
-      'Do not apply toothpaste, butter, oil, or ice directly.',
-      'Do not pop blisters.',
-      'Do not peel stuck clothing off the burn.',
-    ],
-    warning: 'For large, deep, facial, or electrical burns, seek emergency care immediately.',
+    youtubeUrl: 'https://www.youtube.com/watch?v=TLr2qsEhpC8',
+    thumbnailUrl: 'https://img.youtube.com/vi/TLr2qsEhpC8/hqdefault.jpg',
+    summary: 'Cool burns with running water for 20 minutes, cover loosely and seek care for severe burns.',
+    targetCondition: 'Burns & scalds',
+    tags: ['burns', 'scalds'],
+    do: ['Cool with cool running water for 20 minutes', 'Remove jewellery and tight items near the burn', 'Cover with a clean, non-fluffy dressing'],
+    dont: ['Do not apply creams, toothpaste or ice', 'Do not burst blisters'],
+    warning: 'Seek urgent care for deep or large burns, or burns to the face, hands or genitals.',
   },
   {
-    id: 'bleeding-cuts',
-    title: 'Cuts and Bleeding',
-    category: 'Wounds',
+    id: 'poisoning',
+    title: 'How To Treat Poisoning, Signs & Symptoms - St John Ambulance',
+    category: 'Toxicology',
     emergencyLevel: 'High',
-    videoUrl: 'https://samplelib.com/lib/preview/mp4/sample-20s.mp4',
-    downloadName: 'cuts-and-bleeding.mp4',
-    summary: 'Apply firm pressure, raise the wound if possible, and keep it clean until help arrives.',
-    do: [
-      'Apply direct pressure using clean cloth or gauze.',
-      'Raise the injured area if it does not cause more pain.',
-      'Seek urgent care if bleeding is heavy or not stopping.',
-    ],
-    dont: [
-      'Do not keep lifting the cloth to check every few seconds.',
-      'Do not remove deeply embedded objects.',
-      'Do not ignore signs of shock or fainting.',
-    ],
-    warning: 'If blood soaks through cloth quickly or the wound is deep, call emergency services.',
+    youtubeUrl: 'https://www.youtube.com/watch?v=b2ieb8BZJuY',
+    thumbnailUrl: 'https://img.youtube.com/vi/b2ieb8BZJuY/hqdefault.jpg',
+    summary: 'Call your local poison centre or emergency number, follow their guidance and do not induce vomiting unless told.',
+    targetCondition: 'Poisoning / ingestion',
+    tags: ['poisoning', 'toxicology'],
+    do: ['Call emergency services or local poison helpline', 'Provide information about the substance and amount'],
+    dont: ['Do not induce vomiting unless advised by professionals', 'Do not give food or drinks unless told to'],
+    warning: 'Keep containers or packaging to help identify the substance.',
   },
   {
-    id: 'choking',
-    title: 'Choking Response',
-    category: 'Emergency',
+    id: 'snake-bite',
+    title: 'How to treat a snake bite - St John (WA)',
+    category: 'Bites & stings',
     emergencyLevel: 'Critical',
-    videoUrl: 'https://samplelib.com/lib/preview/mp4/sample-30s.mp4',
-    downloadName: 'choking-response.mp4',
-    summary: 'If the person cannot speak or breathe, get emergency help and start first-response measures immediately.',
-    do: [
-      'Ask the person to cough if they can speak.',
-      'Call emergency help if breathing is blocked.',
-      'Use approved first-aid technique if you are trained to do so.',
-    ],
-    dont: [
-      'Do not put fingers blindly into the mouth.',
-      'Do not give water or food.',
-      'Do not wait if the person is turning blue or cannot breathe.',
-    ],
-    warning: 'Choking is an emergency. If the airway is blocked, act immediately.',
+    youtubeUrl: 'https://www.youtube.com/watch?v=lLkw4BXa7pQ',
+    thumbnailUrl: 'https://img.youtube.com/vi/lLkw4BXa7pQ/hqdefault.jpg',
+    summary: 'Keep the casualty still, immobilise the limb and get to hospital immediately.',
+    targetCondition: 'Snake bite',
+    tags: ['snake bite', 'bites'],
+    do: ['Keep the person still and calm', 'Immobilise the bitten limb and keep it lower than the heart', 'Get emergency medical help immediately'],
+    dont: ['Do not cut, suck or attempt to remove venom', 'Do not apply ice or tight tourniquets'],
+    warning: 'Rapid transport to hospital is essential for suspected envenomation.',
   },
   {
-    id: 'dehydration',
-    title: 'Dehydration Support',
-    category: 'General Care',
-    emergencyLevel: 'Medium',
-    videoUrl: 'https://samplelib.com/lib/preview/mp4/sample-60s.mp4',
-    downloadName: 'dehydration-support.mp4',
-    summary: 'Give small sips of water or ORS, rest the person, and watch for dizziness or weakness.',
-    do: [
-      'Offer small, frequent sips of clean water or ORS.',
-      'Keep the person in a cool place and allow rest.',
-      'Monitor for confusion, fainting, or no urination.',
-    ],
-    dont: [
-      'Do not force large amounts of fluid at once.',
-      'Do not ignore signs of severe weakness or confusion.',
-      'Do not delay medical care if vomiting continues.',
-    ],
-    warning: 'Severe dehydration needs medical attention, especially in children or elderly patients.',
+    id: 'heat-stroke',
+    title: 'How To Treat Heat Stroke, Signs & Symptoms - St John Ambulance',
+    category: 'Environmental',
+    emergencyLevel: 'High',
+    youtubeUrl: 'https://www.youtube.com/watch?v=jvGC_dQJUtE',
+    thumbnailUrl: 'https://img.youtube.com/vi/jvGC_dQJUtE/hqdefault.jpg',
+    summary: 'Cool the person quickly, move to shade, remove excess clothing and call emergency services.',
+    targetCondition: 'Heat stroke / heat exhaustion',
+    tags: ['heat', 'environmental'],
+    do: ['Move to a cool place and cool the person with water or fans', 'Give sips of water if conscious and able to swallow', 'Call emergency services for suspected heat stroke'],
+    dont: ['Do not leave the person alone if confused or drowsy', 'Do not give large amounts of cold water quickly if vomiting'],
+    warning: 'Heat stroke is a medical emergency; rapid cooling and medical care are needed.',
+  },
+  {
+    id: 'fracture',
+    title: 'How To Treat A Fracture & Fracture Types - St John Ambulance',
+    category: 'Injuries',
+    emergencyLevel: 'High',
+    youtubeUrl: 'https://www.youtube.com/watch?v=2v8vlXgGXwE',
+    thumbnailUrl: 'https://img.youtube.com/vi/2v8vlXgGXwE/hqdefault.jpg',
+    summary: 'Immobilise the injured part, support it with padding and seek medical assessment.',
+    targetCondition: 'Fractures / broken bones',
+    tags: ['fracture', 'splint', 'injury'],
+    do: ['Immobilise the limb in the position found', 'Make a sling or padded splint if available', 'Treat for shock and get medical help'],
+    dont: ['Do not try to realign broken bones', 'Do not move the casualty unnecessarily'],
+    warning: 'Open fractures or limb deformity require urgent emergency care.',
+  },
+  {
+    id: 'recovery-position',
+    title: 'The Recovery Position - St John Ambulance',
+    category: 'Life saving',
+    emergencyLevel: 'High',
+    youtubeUrl: 'https://www.youtube.com/watch?v=GmqXqwSV3bo',
+    thumbnailUrl: 'https://img.youtube.com/vi/GmqXqwSV3bo/hqdefault.jpg',
+    summary: 'Use the recovery position for an unresponsive person who is breathing normally to keep the airway clear.',
+    targetCondition: 'Unresponsive but breathing',
+    tags: ['recovery position', 'airway'],
+    do: ['Open the airway and place the person on their side', 'Tilt the head back slightly and check breathing regularly'],
+    dont: ['Do not place the person face down', 'Do not leave them unattended'],
+    warning: 'If breathing stops, start CPR and call emergency services.',
   },
 ];
 
-const sanitizeFilename = (value) => String(value || 'video')
-  .toLowerCase()
-  .replace(/[^a-z0-9]+/g, '-')
-  .replace(/^-+|-+$/g, '') || 'video';
+const getCategoryList = () => [...new Set(VIDEO_LIBRARY.map((video) => video.category))];
 
-const ensureDirectory = async () => {
-  const directory = `${FileSystem.documentDirectory}first-aid-videos/`;
-  const info = await FileSystem.getInfoAsync(directory);
-  if (!info.exists) {
-    await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
-  }
-  return directory;
-};
+const getFeaturedVideos = () => VIDEO_LIBRARY.filter((video) => video.emergencyLevel === 'Critical' || video.emergencyLevel === 'High');
 
-const getLocalVideoPath = async (video) => {
-  const directory = await ensureDirectory();
-  const filename = video?.downloadName || `${sanitizeFilename(video?.id || video?.title)}.mp4`;
-  return `${directory}${filename}`;
-};
-
-const hasDownloadedVideo = async (video) => {
-  try {
-    const localPath = await getLocalVideoPath(video);
-    const info = await FileSystem.getInfoAsync(localPath);
-    return info.exists ? localPath : null;
-  } catch (error) {
-    return null;
-  }
-};
-
-const resolvePlaybackUri = async (video) => {
-  if (!video?.videoUrl) {
-    return null;
+const openYouTubeUrl = async (video) => {
+  if (!video?.youtubeUrl) {
+    throw new Error('YouTube link not available');
   }
 
-  const localPath = await hasDownloadedVideo(video);
-  return localPath || video.videoUrl;
-};
-
-const getLocalVideoUri = async (video) => {
-  const destination = await getLocalVideoPath(video);
-  const info = await FileSystem.getInfoAsync(destination);
-
-  if (info.exists) {
-    return destination;
-  }
-
-  const result = await FileSystem.downloadAsync(video.videoUrl, destination);
-  return result.uri;
-};
-
-const downloadVideo = async (video) => {
-  if (!video?.videoUrl) {
-    throw new Error('Video URL not available');
-  }
-
-  const localUri = await getLocalVideoUri(video);
-  const canShare = await Sharing.isAvailableAsync();
-
-  if (canShare) {
-    await Sharing.shareAsync(localUri, {
-      mimeType: 'video/mp4',
-      dialogTitle: video.title || 'Download video',
-      UTI: 'public.mpeg-4',
-    });
-  }
-
-  return localUri;
+  return video.youtubeUrl;
 };
 
 const firstAidVideoService = {
   list: () => [...VIDEO_LIBRARY],
   getById: (id) => VIDEO_LIBRARY.find((item) => item.id === id) || null,
-  downloadVideo,
-  getLocalVideoUri,
-  getLocalVideoPath,
-  hasDownloadedVideo,
-  resolvePlaybackUri,
+  getCategoryList,
+  getFeaturedVideos,
+  openYouTubeUrl,
 };
 
 export default firstAidVideoService;

@@ -7,6 +7,260 @@ const healthRecordsModel = require('../models/healthRecords');
 
 module.exports = {
   /**
+   * GET /api/health-records/videos/library
+   * List curated video library
+   */
+  listVideoLibrary: (req, res) => {
+    try {
+      const { category, tag, condition, q } = req.query;
+      const videos = healthRecordsModel.listVideoLibrary({ category, tag, condition, q });
+
+      return res.status(200).json({
+        success: true,
+        videos,
+        count: videos.length,
+      });
+    } catch (error) {
+      console.error('Error listing video library:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to list video library',
+        error: error.message,
+      });
+    }
+  },
+
+  /**
+   * POST /api/health-records/videos/library
+   * Add curated video
+   */
+  addVideoToLibrary: (req, res) => {
+    try {
+      const { title, youtubeEmbedUrl } = req.body;
+
+      if (!title || !youtubeEmbedUrl) {
+        return res.status(400).json({
+          success: false,
+          message: 'title and youtubeEmbedUrl are required',
+        });
+      }
+
+      const video = healthRecordsModel.addVideoToLibrary(req.body);
+      return res.status(201).json({
+        success: true,
+        message: 'Video added to library',
+        video,
+      });
+    } catch (error) {
+      console.error('Error adding video to library:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to add video to library',
+        error: error.message,
+      });
+    }
+  },
+
+  /**
+   * PUT /api/health-records/videos/library/:videoId
+   * Update curated video
+   */
+  updateVideoInLibrary: (req, res) => {
+    try {
+      const { videoId } = req.params;
+      const video = healthRecordsModel.updateVideoInLibrary(videoId, req.body);
+
+      if (!video) {
+        return res.status(404).json({
+          success: false,
+          message: 'Video not found',
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Video updated',
+        video,
+      });
+    } catch (error) {
+      console.error('Error updating video in library:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to update video in library',
+        error: error.message,
+      });
+    }
+  },
+
+  /**
+   * DELETE /api/health-records/videos/library/:videoId
+   * Delete curated video
+   */
+  deleteVideoFromLibrary: (req, res) => {
+    try {
+      const { videoId } = req.params;
+      const video = healthRecordsModel.deleteVideoFromLibrary(videoId);
+
+      if (!video) {
+        return res.status(404).json({
+          success: false,
+          message: 'Video not found',
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Video deleted from library',
+        video,
+      });
+    } catch (error) {
+      console.error('Error deleting video from library:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to delete video from library',
+        error: error.message,
+      });
+    }
+  },
+
+  /**
+   * POST /api/health-records/videos/assignments
+   * Doctor assigns video to patient
+   */
+  assignVideoToPatient: (req, res) => {
+    try {
+      const { userId, videoId } = req.body;
+
+      if (!userId || !videoId) {
+        return res.status(400).json({
+          success: false,
+          message: 'userId and videoId are required',
+        });
+      }
+
+      const assignment = healthRecordsModel.assignVideoToPatient(req.body);
+
+      return res.status(201).json({
+        success: true,
+        message: 'Video assigned to patient',
+        notification: {
+          type: 'video_assignment',
+          sent: assignment.notificationSent,
+          recipientUserId: assignment.userId,
+        },
+        assignment,
+      });
+    } catch (error) {
+      console.error('Error assigning video to patient:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to assign video to patient',
+        error: error.message,
+      });
+    }
+  },
+
+  /**
+   * GET /api/health-records/user/:userId/videos
+   * List patient assigned videos
+   */
+  getUserAssignedVideos: (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { status } = req.query;
+      const assignments = healthRecordsModel.getUserAssignedVideos(userId, status || '');
+
+      return res.status(200).json({
+        success: true,
+        assignments,
+        count: assignments.length,
+      });
+    } catch (error) {
+      console.error('Error getting user assigned videos:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to get user assigned videos',
+        error: error.message,
+      });
+    }
+  },
+
+  /**
+   * PUT /api/health-records/videos/assignments/:assignmentId/progress
+   * Update watch progress from app/IFrame events
+   */
+  updateAssignedVideoProgress: (req, res) => {
+    try {
+      const { assignmentId } = req.params;
+      const assignment = healthRecordsModel.updateAssignedVideoProgress(
+        assignmentId,
+        req.body
+      );
+
+      if (!assignment) {
+        return res.status(404).json({
+          success: false,
+          message: 'Video assignment not found',
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Watch progress updated',
+        assignment,
+      });
+    } catch (error) {
+      console.error('Error updating assigned video progress:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to update assigned video progress',
+        error: error.message,
+      });
+    }
+  },
+
+  /**
+   * GET /api/health-records/doctor/:doctorId/videos
+   * Doctor dashboard for video completion tracking
+   */
+  getDoctorAssignedVideos: (req, res) => {
+    try {
+      const { doctorId } = req.params;
+      const { userId, status } = req.query;
+      const assignments = healthRecordsModel.getDoctorAssignedVideos(
+        doctorId,
+        userId || '',
+        status || ''
+      );
+
+      const completedCount = assignments.filter((item) => item.status === 'completed').length;
+      const averageWatchPercentage = assignments.length > 0
+        ? Math.round(
+          assignments.reduce((sum, item) => sum + Number(item.watchPercentage || 0), 0) /
+              assignments.length
+        )
+        : 0;
+
+      return res.status(200).json({
+        success: true,
+        assignments,
+        count: assignments.length,
+        summary: {
+          completedCount,
+          averageWatchPercentage,
+        },
+      });
+    } catch (error) {
+      console.error('Error getting doctor assigned videos:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to get doctor assigned videos',
+        error: error.message,
+      });
+    }
+  },
+
+  /**
    * POST /api/health-records/prescriptions
    * Add a new prescription
    */

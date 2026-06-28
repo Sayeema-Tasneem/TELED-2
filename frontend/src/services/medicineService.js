@@ -76,7 +76,15 @@ const requestWithFallback = async (path, options = {}) => {
     }
   }
 
-  throw lastError || new Error('Cannot reach backend server');
+  // Provide clearer diagnostic information so the app can show which
+  // backend candidates were tried and the last error encountered.
+  const message = `Cannot reach backend servers (${baseUrls.join(', ')}). Last error: ${
+    lastError?.message || String(lastError)
+  }`;
+  const err = new Error(message);
+  // Keep original stack for debugging if available
+  if (lastError && lastError.stack) err.stack = lastError.stack;
+  throw err;
 };
 
 const parseResponseJson = async (response) => {

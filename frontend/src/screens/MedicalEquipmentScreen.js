@@ -3,6 +3,8 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
+  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -50,6 +52,8 @@ export default function MedicalEquipmentScreen() {
   const [selectedSlotId, setSelectedSlotId] = useState(null);
   const [bookingHistory, setBookingHistory] = useState([]);
   const [bookingInProgress, setBookingInProgress] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [showImageModal, setShowImageModal] = useState(false);
   const notifiedEquipmentRef = useRef(new Set());
   const locationSubscriptionRef = useRef(null);
 
@@ -392,6 +396,24 @@ export default function MedicalEquipmentScreen() {
             selectedEquipment ? (
               <View style={styles.detailPanel}>
                 <Text style={styles.detailTitle}>{selectedEquipment.name}</Text>
+                {selectedEquipment.imageUrl && (
+                  <TouchableOpacity 
+                    onPress={() => {
+                      setSelectedImage(selectedEquipment.imageUrl);
+                      setShowImageModal(true);
+                    }}
+                    activeOpacity={0.8}
+                    style={styles.imageContainer}
+                  >
+                    <Image 
+                      source={{ uri: selectedEquipment.imageUrl }} 
+                      style={styles.equipmentImage}
+                    />
+                    <View style={styles.imageOverlay}>
+                      <Text style={styles.imageOverlayText}>Tap to view larger</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
                 <Text style={styles.detailDescription}>{selectedEquipment.description}</Text>
                 <Text style={styles.detailMeta}>
                   {t('screens.equipment.provider', 'Provider')}: {selectedEquipment.providerName}
@@ -467,6 +489,23 @@ export default function MedicalEquipmentScreen() {
           }
         />
       )}
+      
+      <Modal visible={showImageModal} transparent animationType="fade" onRequestClose={() => setShowImageModal(false)}>
+        <View style={styles.imageModalOverlay}>
+          <View style={styles.imageModalHeader}>
+            <TouchableOpacity onPress={() => setShowImageModal(false)}>
+              <Text style={styles.imageModalCloseText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+          {selectedImage && (
+            <Image 
+              source={{ uri: selectedImage }} 
+              style={styles.fullScreenImage}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -760,5 +799,58 @@ const styles = StyleSheet.create({
   emptyInlineText: {
     fontSize: 12,
     color: '#64748B',
+  },
+  imageContainer: {
+    marginVertical: 12,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#F5F7FB',
+  },
+  equipmentImage: {
+    width: '100%',
+    height: 200,
+    backgroundColor: '#E2E8F0',
+  },
+  imageOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  imageOverlayText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  imageModalOverlay: {
+    flex: 1,
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 40,
+  },
+  imageModalHeader: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    left: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    zIndex: 10,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  imageModalCloseText: {
+    color: '#93C5FD',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  fullScreenImage: {
+    width: '100%',
+    height: '100%',
   },
 });
